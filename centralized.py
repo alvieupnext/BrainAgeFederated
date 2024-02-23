@@ -197,12 +197,12 @@ def get_test_loader(df, batch_size):
   return test_loader
 
 #Function for splitting datasets
-def split_datasets(df, mode='dataset', turbulence=0):
+def group_datasets(df, mode='dataset', turbulence=0.0):
   #If dataset mode, split the dataframe by the dataset column
   if mode == 'dataset':
     # Split the dataset by the dataset column
     groups = df.groupby('dataset')
-    return [group for _, group in groups]
+    return {name: group for name, group in groups}
   # Number mode, split uniformly in n dataframes
   else:
     try:
@@ -226,7 +226,7 @@ def split_datasets(df, mode='dataset', turbulence=0):
     else:
       # Split the DataFrame uniformly into n DataFrames if turbulence is 0 or not specified
       groups = np.array_split(df, n)
-    return groups
+    return {i: group for i, group in enumerate(groups)}
 
 def split_save_datasets(csv_name, sep='\t', test_size=0.2, random_state=10):
   # Load the dataset
@@ -318,8 +318,18 @@ def run_model(project_name, epochs=10):
 
 
 if __name__ == '__main__':
+  df = pd.read_csv('patients_dataset_6326_train.csv')
+  # #Group the datasets
+  # dfs = group_datasets(df, 'dataset')
+  # #For every dataframe
+  # for i, df in enumerate(dfs):
+  #   #Print the dataframes
+  #   print(f'Dataframe {i} size: {len(df)}')
+  #   #Print the head
+  #   print(df.head())
+
   # downsize_data('patients_dataset_6326_test.csv', percentage=5)
-  run_model('test', epochs=10)
+  # run_model('test', epochs=10)
 
 
 
