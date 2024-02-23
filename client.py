@@ -26,13 +26,12 @@ save_dir = './utils/models/' + project_name + "/"
 
 class FlowerClient(fl.client.NumPyClient):
 
-    def __init__(self, net, trainloader, valloader, testloader, cid, name=None):
+    def __init__(self, net, trainloader, valloader, cid, name=None):
       self.net = net
       self.trainloader = trainloader
       self.valloader = valloader
       self.cid = cid
       self.name = name
-      self.testloader = testloader
 
     def get_parameters(self, config):
         return [val.cpu().numpy() for _, val in self.net.state_dict().items()]
@@ -49,5 +48,5 @@ class FlowerClient(fl.client.NumPyClient):
 
     def evaluate(self, parameters, config):
         set_parameters(self.net, parameters)
-        val_losses, _, _, _, _, val_mae = validate(self.net, self.testloader)
-        return float(val_losses), len(self.testloader), {}
+        val_losses, _, _, _, _, val_mae = validate(self.net, self.valloader)
+        return float(val_losses), len(self.valloader), {}
