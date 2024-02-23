@@ -202,7 +202,8 @@ def group_datasets(df, mode='dataset', turbulence=0.0):
   if mode == 'dataset':
     # Split the dataset by the dataset column
     groups = df.groupby('dataset')
-    return {name: group for name, group in groups}
+    # Dont forget to reset index
+    return {name: group.reset_index(drop=True, inplace=False) for name, group in groups}
   # Number mode, split uniformly in n dataframes
   else:
     try:
@@ -212,21 +213,34 @@ def group_datasets(df, mode='dataset', turbulence=0.0):
     except ValueError as e:
       raise ValueError("Mode must be 'dataset' or a positive integer representing the number of splits.") from e
 
-    # Adjust split points based on the turbulence factor
+    # Initialize the list to hold split DataFrames
+    groups = []
+
     if turbulence > 0:
-      # Generate split points using a skewed distribution
+      # Adjust split points based on the turbulence factor
       alpha = 2  # Keeping alpha constant, but you can adjust this based on your needs
       beta_param = max(1, 2 / (1 + turbulence))  # Adjust beta to control skewness
       split_points = np.cumsum(beta.rvs(alpha, beta_param, size=n - 1))
       split_points /= split_points[-1]
       split_points *= len(df)
       split_points = np.unique(split_points.astype(int))  # Ensure unique split points
-      # Split DataFrame at calculated indices
-      groups = np.split(df, split_points)
+
+      # Add a start and end point for the split ranges
+      split_ranges = [0] + list(split_points) + [len(df)]
+
+      # Use iloc to split DataFrame and retain structure
+      for i in range(len(split_ranges) - 1):
+        start, end = split_ranges[i], split_ranges[i + 1]
+        groups.append(df.iloc[start:end])
     else:
-      # Split the DataFrame uniformly into n DataFrames if turbulence is 0 or not specified
-      groups = np.array_split(df, n)
-    return {i: group for i, group in enumerate(groups)}
+      # Calculate the size of each split
+      split_size = len(df) // n
+      for i in range(n):
+        start = i * split_size
+        # For the last split, make sure to include the remainder
+        end = (i + 1) * split_size if i < n - 1 else len(df)
+        groups.append(df.iloc[start:end])
+  return {i: group.reset_index(drop=True, inplace=False) for i, group in enumerate(groups)}
 
 def split_save_datasets(csv_name, sep='\t', test_size=0.2, random_state=10):
   # Load the dataset
@@ -318,7 +332,8 @@ def run_model(project_name, epochs=10):
 
 
 if __name__ == '__main__':
-  df = pd.read_csv('patients_dataset_6326_train.csv')
+  # df = pd.read_csv('patients_dataset_6326_train.csv')
+  split_save_datasets('patients_dataset_6326.csv')
   # #Group the datasets
   # dfs = group_datasets(df, 'dataset')
   # #For every dataframe

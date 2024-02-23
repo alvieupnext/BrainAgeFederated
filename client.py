@@ -41,7 +41,7 @@ class FlowerClient(fl.client.NumPyClient):
 
     def fit(self, parameters, config):
         set_parameters(self.net, parameters)
-        friendly_name = self.name or self.cid
+        friendly_name = str(self.name) or str(self.cid)
         model_save_path = save_dir + friendly_name + "/" + datetime.now().strftime('{}_%d-%m-%y-%H_%M.pt'.format(project_name))
         train(self.net, self.trainloader, self.valloader, 1, model_save_path)
         return self.get_parameters({}), len(self.trainloader), {}
