@@ -20,6 +20,8 @@ from monai.transforms import (
     LoadImage,
     RandFlip,
 )
+
+from scipy.stats import beta
 import pandas as pd
 
 warnings.filterwarnings("ignore")
@@ -123,8 +125,8 @@ def img_to_tensor(image_path):
 class dataset(Dataset):
   """Brain-age fine-tuning dataset"""
 
-  def __init__(self, csv_file, transform=None):
-    self.file_frame = pd.read_csv(csv_file)
+  def __init__(self, df, transform=None):
+    self.file_frame = df
     self.transform = transform
 
   def __len__(self):
@@ -140,55 +142,97 @@ class dataset(Dataset):
     idsub = self.file_frame.iloc[idx]['ID']
     return tensor, age, idsub
 
-def get_train_valid_loader(csv_file, batch_size=4, random_seed=10, aug='none', kcrossval=None, icross=-1):
-  print('composing...')
-  if aug == 'none':
-    train_transforms = Compose([LoadImage(image_only=True, ensure_channel_first=True), ToTensor()])
-  elif aug == 'flip':
-    train_transforms = Compose([LoadImage(image_only=True, ensure_channel_first=True), RandFlip(prob=0.5, spatial_axis=0), ToTensor()])
 
-  valid_transforms = Compose([LoadImage(image_only=True, ensure_channel_first=True), ToTensor()])
+import pandas as pd
+from torch.utils.data import DataLoader, SubsetRandomSampler
+from torchvision.transforms import Compose
+from monai.transforms import LoadImage, ToTensor, RandFlip
 
-  print('structuring loader datasets...')
-  train_dataset = dataset(csv_file, transform=train_transforms)
-  valid_dataset = dataset(csv_file, transform=valid_transforms)
 
-  df = pd.read_csv(csv_file)
+def get_data_transforms(augmentation='none'):
+  """Generate data transformations based on the augmentation type."""
+  base_transforms = [LoadImage(image_only=True, ensure_channel_first=True)]
+  if augmentation == 'flip':
+    base_transforms.append(RandFlip(prob=0.5, spatial_axis=0))
+  base_transforms.append(ToTensor())
+  return Compose(base_transforms)
+
+
+def split_dataset_ids(df, kcrossval=None, icross=-1, test_size=0.15, random_seed=10):
+  """Split dataset IDs for training and validation sets."""
   IDs = df['ID'].unique().tolist()
 
   if kcrossval is None:
-    print('splitting training and validation datasets...')
-    train_ids, valid_ids = train_test_split(IDs, test_size=0.15, random_state=random_seed)
+    return train_test_split(IDs, test_size=test_size, random_state=random_seed)
   else:
-    i = icross
-    print('splitting training and validation datasets - cross validation ' + str(icross) + '/' + str(
-      kcrossval - 1) + '...')
     fold_size = len(IDs) // kcrossval
-    valid_ids = IDs[i * fold_size:i * fold_size + fold_size]
-    train_ids = [IDs[i] for i in range(len(IDs)) if IDs[i] not in valid_ids]
-  train_idx = df[df['ID'].isin(train_ids)].index.tolist()
-  valid_idx = df[df['ID'].isin(valid_ids)].index.tolist()
-  train_sampler = SubsetRandomSampler(train_idx)
-  valid_sampler = SubsetRandomSampler(valid_idx)
-  train_loader = DataLoader(train_dataset, batch_size=batch_size, sampler=train_sampler)
-  valid_loader = DataLoader(valid_dataset, batch_size=batch_size, sampler=valid_sampler)
+    valid_ids = IDs[icross * fold_size:(icross + 1) * fold_size]
+    train_ids = [id_ for id_ in IDs if id_ not in valid_ids]
+    return train_ids, valid_ids
 
-  print('number of training scans: {}, valid scans: {}'.format(len(train_idx), len(valid_idx)))
+
+def get_loader(df, ids, transforms, batch_size):
+  """Create a DataLoader given IDs and transformations."""
+  idx = df[df['ID'].isin(ids)].index.tolist()
+  dataset_obj = dataset(df, transform=transforms)
+  sampler = SubsetRandomSampler(idx)
+  return DataLoader(dataset_obj, batch_size=batch_size, sampler=sampler), len(idx)
+
+
+def get_train_valid_loader(df, batch_size=4, random_seed=10, aug='none', kcrossval=None, icross=-1):
+  print('Composing transformations and structuring loader datasets...')
+  train_transforms = get_data_transforms(augmentation=aug)
+  valid_transforms = get_data_transforms(augmentation='none')
+
+  train_ids, valid_ids = split_dataset_ids(df, kcrossval, icross, random_seed=random_seed)
+
+  train_loader, num_train = get_loader(df, train_ids, train_transforms, batch_size)
+  valid_loader, num_valid = get_loader(df, valid_ids, valid_transforms, batch_size)
+
+  print(f'Number of training scans: {num_train}, valid scans: {num_valid}')
   return train_loader, valid_loader
 
-def get_test_loader(csv_file, batch_size):
-  print('composing...')
-  test_transforms = Compose([LoadImage(image_only=True, ensure_channel_first=True), ToTensor()])
-  print('structuring test loader dataset...')
-  test_dataset = dataset(csv_file, transform=test_transforms)
-  df = pd.read_csv(csv_file)
-  test_idx = df.index.tolist()
-  test_sampler = SubsetRandomSampler(test_idx)
-  # Creating intsances of test dataloafrt
-  test_loader = DataLoader(test_dataset, batch_size=batch_size, sampler=test_sampler)
-  print('number of test scans: {}'.format(len(test_idx)))
+
+def get_test_loader(df, batch_size):
+  print('Composing transformations and structuring test loader dataset...')
+  test_transforms = get_data_transforms(augmentation='none')
+  test_ids = df['ID'].unique().tolist()  # Assuming each row is a unique scan
+  test_loader, num_test = get_loader(df, test_ids, test_transforms, batch_size)
+
+  print(f'Number of test scans: {num_test}')
   return test_loader
 
+#Function for splitting datasets
+def split_datasets(df, mode='dataset', turbulence=0):
+  #If dataset mode, split the dataframe by the dataset column
+  if mode == 'dataset':
+    # Split the dataset by the dataset column
+    groups = df.groupby('dataset')
+    return [group for _, group in groups]
+  # Number mode, split uniformly in n dataframes
+  else:
+    try:
+      n = int(mode)
+      if n < 1:
+        raise ValueError("Number of splits (mode) must be at least 1.")
+    except ValueError as e:
+      raise ValueError("Mode must be 'dataset' or a positive integer representing the number of splits.") from e
+
+    # Adjust split points based on the turbulence factor
+    if turbulence > 0:
+      # Generate split points using a skewed distribution
+      alpha = 2  # Keeping alpha constant, but you can adjust this based on your needs
+      beta_param = max(1, 2 / (1 + turbulence))  # Adjust beta to control skewness
+      split_points = np.cumsum(beta.rvs(alpha, beta_param, size=n - 1))
+      split_points /= split_points[-1]
+      split_points *= len(df)
+      split_points = np.unique(split_points.astype(int))  # Ensure unique split points
+      # Split DataFrame at calculated indices
+      groups = np.split(df, split_points)
+    else:
+      # Split the DataFrame uniformly into n DataFrames if turbulence is 0 or not specified
+      groups = np.array_split(df, n)
+    return groups
 
 def split_save_datasets(csv_name, sep='\t', test_size=0.2, random_state=10):
   # Load the dataset
@@ -239,6 +283,25 @@ def downsize_data(csv_name, sep='\t', percentage=1):
 
   return csv_name_downsized
 
+def convert_state_dict(input_path):
+  # function to remove the keywork 'module' from pytorch state_dict (which occurs when model is trained using nn.DataParallel)
+  new_state_dict = OrderedDict()
+  state_dict = torch.load(input_path, map_location='cpu')
+  for k, v in state_dict.items():
+    if 'module' in k:
+      name = k[7:]  # remove `module.`
+    else:
+      name = k
+    new_state_dict[name] = v
+  return new_state_dict
+
+def load_model(model_path=None):
+  # Load the model
+  net = DenseNet(3, 1, 1)
+  if model_path:
+    state_dict = convert_state_dict(model_path)
+    net.load_state_dict(state_dict)
+  return net
 def run_model(project_name, epochs=10):
   save_dir = './utils/models/' + project_name + "/"
   #If save directory does not exist, create it
@@ -248,7 +311,8 @@ def run_model(project_name, epochs=10):
   csv_file = 'patients_dataset_6326_test_downsized_5.csv'
   #Print the device we are currently working on
   print(DEVICE)
-  trainloader, valloader = get_train_valid_loader(csv_file, batch_size=4, random_seed=10, aug='none', kcrossval=None, icross=-1)
+  df = pd.read_csv(csv_file)
+  trainloader, valloader = get_train_valid_loader(df, batch_size=4, random_seed=10, aug='none', kcrossval=None, icross=-1)
   model_save_path = save_dir + datetime.datetime.now().strftime('{}_%d-%m-%y-%H_%M.pt'.format(project_name))
   net = DenseNet(3, 1, 1)  # , dropout_prob=0.02)
   net = net.to(device=DEVICE)
