@@ -1,6 +1,6 @@
 from datetime import datetime
 from random import random
-
+import os
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from centralized import (get_test_loader, get_train_valid_loader, group_datasets,
@@ -42,7 +42,11 @@ class FlowerClient(fl.client.NumPyClient):
     def fit(self, parameters, config):
         set_parameters(self.net, parameters)
         friendly_name = str(self.name) or str(self.cid)
-        model_save_path = save_dir + friendly_name + "/" + datetime.now().strftime('{}_%d-%m-%y-%H_%M.pt'.format(project_name))
+        client_save_dir = save_dir + friendly_name + "/"
+        #If the repository does not exist, create it
+        if not os.path.exists(client_save_dir):
+            os.makedirs(client_save_dir)
+        model_save_path = client_save_dir + datetime.now().strftime('{}_%d-%m-%y-%H_%M.pt'.format(project_name))
         train(self.net, self.trainloader, self.valloader, 1, model_save_path)
         return self.get_parameters({}), len(self.trainloader), {}
 
