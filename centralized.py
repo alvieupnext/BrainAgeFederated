@@ -143,12 +143,6 @@ class dataset(Dataset):
     return tensor, age, idsub
 
 
-import pandas as pd
-from torch.utils.data import DataLoader, SubsetRandomSampler
-from torchvision.transforms import Compose
-from monai.transforms import LoadImage, ToTensor, RandFlip
-
-
 def get_data_transforms(augmentation='none'):
   """Generate data transformations based on the augmentation type."""
   base_transforms = [LoadImage(image_only=True, ensure_channel_first=True)]
