@@ -1,13 +1,22 @@
+from flwr.server.client_proxy import ClientProxy
+
 from centralized import load_model, DEVICE, get_test_loader, group_datasets, get_train_valid_loader, validate
 from client import FlowerClient, set_parameters
 import pandas as pd
 import flwr as fl
-from flwr.common import NDArrays, Scalar
-from typing import Dict, Optional, Tuple
+from flwr.common import NDArrays, Scalar, FitRes, Parameters
+from typing import Dict, Optional, Tuple, List, Union, OrderedDict
+import os
+import numpy as np
+import torch
+
+from strategy import SaveModelStrategy
+from utils import project_name, save_dir
+
 # Load patients_dataset_6326_train.csv
 df = pd.read_csv('patients_dataset_6326_train.csv')
 #Group the dataframe in different dataframes by dataset attribute
-dfs = group_datasets(df, mode='100')
+dfs = group_datasets(df, mode='dataset')
 # #Remove PDD from the dictionary
 # dfs.pop('PDD')
 dataloaders = {name: get_train_valid_loader(df, batch_size=3, random_seed=10) for name, df in dfs.items()}
@@ -28,7 +37,7 @@ def client_fn(cid: str) -> FlowerClient:
 
 
   # Create a  single Flower client representing a single organization
-  return FlowerClient(net, trainloader, valloader, cid, name)
+  return FlowerClient(net, project_name, trainloader, valloader, cid, name)
 
 #Evaluation server side using test csv
 def get_evaluate_fn(model):
@@ -39,6 +48,13 @@ def get_evaluate_fn(model):
     print("Evaluating round", server_round)
     set_parameters(model, parameters)
     val_losses, _, _, _, _, val_mae = validate(model, testloader)
+    # If the repository does not exist, create it
+    if not os.path.exists(save_dir):
+      os.makedirs(save_dir)
+    #Write the losses to a file in save_dir
+    with open(save_dir + 'centralized_losses.txt', 'a') as f:
+      f.write(f"{server_round},{val_losses}\n")
+
     return float(val_losses), {}
 
   return evaluate
@@ -71,17 +87,25 @@ net = load_model().to(DEVICE)
 strategy = fl.server.strategy.FedAvg(
     fraction_fit=1.0,  # Sample 100% of available clients for training
     fraction_evaluate=0.5,  # Sample 50% of available clients for evaluation
-    evaluate_fn=get_evaluate_fn(net)
+    evaluate_fn=get_evaluate_fn(net),
+    on_fit_config_fn=fit_config,  # Pass the fit_config function
     # min_fit_clients=10,  # Never sample less than 10 clients for training
     # min_evaluate_clients=2,  # Never sample less than 5 clients for evaluation
     # min_available_clients=10,  # Wait until all 10 clients are available
 )
 
+save_strategy = SaveModelStrategy(
+  fraction_fit=1.0,  # Sample 100% of available clients for training
+    fraction_evaluate=0.5,  # Sample 50% of available clients for evaluation
+    evaluate_fn=get_evaluate_fn(net),
+    on_fit_config_fn=fit_config,
+)
+
 # Start simulation
 fl.simulation.start_simulation(
     client_fn=client_fn,
-    num_clients=3,
-    config=fl.server.ServerConfig(num_rounds=2),
-    strategy=strategy,
+    num_clients=len(dfs),
+    config=fl.server.ServerConfig(num_rounds=5),
+    strategy=save_strategy,
     client_resources=client_resources,
 )

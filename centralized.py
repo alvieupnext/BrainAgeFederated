@@ -61,8 +61,15 @@ def train(net, trainloader, valloader, epochs, model_save_path, losses_save_path
     df = pd.read_csv(losses_save_path)
     #Get the current time as %d-%m-%y-%H_%M
     now = datetime.datetime.now().strftime('%d-%m-%y-%H_%M')
-    #Add a row to the dataframe with the current losses
-    df = df.append({'server_round': training_round, 'epoch': epoch, 'train_loss': train_loss, 'val_loss': val_loss, 'time': now}, ignore_index=True)
+    # Create a new DataFrame with the data to append
+    new_row = pd.DataFrame({'server_round': [training_round],
+                            'epoch': [epoch],
+                            'train_loss': [train_loss],
+                            'val_loss': [val_loss],
+                            'time': [now]})
+
+    # Use concat to add the new row to the existing DataFrame
+    df = pd.concat([df, new_row], ignore_index=True)
     #Save the dataframe to the losses save path
     df.to_csv(losses_save_path, index=False)
     scheduler.step(val_loss)
