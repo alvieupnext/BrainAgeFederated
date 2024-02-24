@@ -57,7 +57,7 @@ class FlowerClient(fl.client.NumPyClient):
             os.makedirs(client_save_dir)
         model_save_path = client_save_dir + f"{self.name}_{server_round}.pt"
         #Save the losses in a file
-        losses_save_path = client_save_dir + self.name + '_losses.csv'
+        losses_save_path = client_save_dir + str(self.name) + '_losses.csv'
         #If the losses file does not exist, create it with the headers
         # Create a new dataframe with the following columns: server_round, epoch, train_loss, val_loss, train_mae, val_mae
         if not os.path.exists(losses_save_path):
@@ -67,7 +67,7 @@ class FlowerClient(fl.client.NumPyClient):
         return self.get_parameters({}), len(self.trainloader), {}
 
     def evaluate(self, parameters, config):
-      return 0.1, 1, {}
-        # set_parameters(self.net, parameters)
-        # val_losses, _, _, _, _, val_mae = validate(self.net, self.valloader)
-        # return float(val_losses), len(self.valloader), {}
+      # return 0.1, 1, {}
+        set_parameters(self.net, parameters)
+        val_losses, _, _, _, _, val_mae = validate(self.net, self.valloader)
+        return float(val_losses), len(self.valloader), {}

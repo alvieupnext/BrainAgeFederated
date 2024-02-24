@@ -19,12 +19,15 @@ df = pd.read_csv('patients_dataset_6326_train.csv')
 dfs = group_datasets(df, mode='dataset')
 # #Remove PDD from the dictionary
 # dfs.pop('PDD')
-dataloaders = {name: get_train_valid_loader(df, batch_size=3, random_seed=10) for name, df in dfs.items()}
+dataloaders = {name: get_train_valid_loader(df, batch_size=3, random_seed=10, dataset_scale=0.1) for name, df in dfs.items()}
 names = list(dataloaders.keys())
 print(names)
 print(dataloaders)
 # #Print the dataframe from Other and from PDD
 # print(dfs.get('PDD'))
+print("Loaded test data")
+testdf = pd.read_csv('patients_dataset_6326_test.csv')
+testloader = get_test_loader(testdf, batch_size=4, dataset_scale=0.1)
 def client_fn(cid: str) -> FlowerClient:
   """Create a Flower client representing a single organization."""
 
@@ -41,9 +44,6 @@ def client_fn(cid: str) -> FlowerClient:
 
 #Evaluation server side using test csv
 def get_evaluate_fn(model):
-  testdf = pd.read_csv('patients_dataset_6326_test.csv')
-  testloader = get_test_loader(testdf, batch_size=4)
-  print("Loaded test data")
   def evaluate(server_round: int, parameters: NDArrays, config: Dict[str, Scalar]) -> Optional[Tuple[float, Dict[str, Scalar]]]:
     print("Evaluating round", server_round)
     set_parameters(model, parameters)
