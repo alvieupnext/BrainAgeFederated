@@ -329,7 +329,7 @@ def load_model(model_path=None):
   net = DenseNet(3, 1, 1)
   if model_path:
     state_dict = convert_state_dict(model_path)
-    net.load_state_dict(state_dict)
+    net.load_state_dict(state_dict, strict=True)
   return net
 def run_model(project_name, epochs=10):
   save_dir = './utils/models/' + project_name + "/"

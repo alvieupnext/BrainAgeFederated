@@ -11,7 +11,7 @@ import numpy as np
 import torch
 
 from strategy import SaveModelStrategy
-from utils import project_name, save_dir
+from utils import project_name, save_dir, dwood
 
 # Load patients_dataset_6326_train.csv
 df = pd.read_csv('patients_dataset_6326_train.csv')
@@ -80,8 +80,13 @@ if DEVICE.type == "cuda":
     client_resources = {"num_cpus": 1, "num_gpus": 1.0}
     # Refer to our documentation for more details about Flower Simulations
     # and how to setup these `client_resources`.
-
+# dwood_seed_2 = dwood + 'seed_2.pt'
 net = load_model().to(DEVICE)
+
+weights = [val.cpu().numpy() for _, val in net.state_dict().items()]
+
+parameters = fl.common.ndarrays_to_parameters(weights)
+
 
 # Create FedAvg strategy
 strategy = fl.server.strategy.FedAvg(
@@ -89,6 +94,7 @@ strategy = fl.server.strategy.FedAvg(
     fraction_evaluate=0.5,  # Sample 50% of available clients for evaluation
     evaluate_fn=get_evaluate_fn(net),
     on_fit_config_fn=fit_config,  # Pass the fit_config function
+    initial_parameters=parameters,
     # min_fit_clients=10,  # Never sample less than 10 clients for training
     # min_evaluate_clients=2,  # Never sample less than 5 clients for evaluation
     # min_available_clients=10,  # Wait until all 10 clients are available
@@ -99,6 +105,7 @@ save_strategy = SaveModelStrategy(
     fraction_evaluate=0.5,  # Sample 50% of available clients for evaluation
     evaluate_fn=get_evaluate_fn(net),
     on_fit_config_fn=fit_config,
+  initial_parameters=parameters,
 )
 
 # Start simulation
