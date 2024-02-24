@@ -1,10 +1,9 @@
-from centralized import load_model, DEVICE, get_test_loader, group_datasets, get_train_valid_loader
-from client import FlowerClient
+from centralized import load_model, DEVICE, get_test_loader, group_datasets, get_train_valid_loader, validate
+from client import FlowerClient, set_parameters
 import pandas as pd
 import flwr as fl
-
-testdf = pd.read_csv('patients_dataset_6326_test.csv')
-testloader = get_test_loader(testdf, batch_size=4)
+from flwr.common import NDArrays, Scalar
+from typing import Dict, Optional, Tuple
 # Load patients_dataset_6326_train.csv
 df = pd.read_csv('patients_dataset_6326_train.csv')
 #Group the dataframe in different dataframes by dataset attribute
@@ -31,14 +30,30 @@ def client_fn(cid: str) -> FlowerClient:
   # Create a  single Flower client representing a single organization
   return FlowerClient(net, trainloader, valloader, cid, name)
 
-# Create FedAvg strategy
-strategy = fl.server.strategy.FedAvg(
-    fraction_fit=1.0,  # Sample 100% of available clients for training
-    fraction_evaluate=0.5,  # Sample 50% of available clients for evaluation
-    # min_fit_clients=10,  # Never sample less than 10 clients for training
-    # min_evaluate_clients=2,  # Never sample less than 5 clients for evaluation
-    # min_available_clients=10,  # Wait until all 10 clients are available
-)
+#Evaluation server side using test csv
+def get_evaluate_fn(model):
+  testdf = pd.read_csv('patients_dataset_6326_test.csv')
+  testloader = get_test_loader(testdf, batch_size=4)
+  print("Loaded test data")
+  def evaluate(server_round: int, parameters: NDArrays, config: Dict[str, Scalar]) -> Optional[Tuple[float, Dict[str, Scalar]]]:
+    print("Evaluating round", server_round)
+    set_parameters(model, parameters)
+    val_losses, _, _, _, _, val_mae = validate(model, testloader)
+    return float(val_losses), {}
+
+  return evaluate
+
+def fit_config(server_round: int):
+  """Return training configuration dict for each round.
+
+  Perform two rounds of training with one local epoch, increase to two local
+  epochs afterwards.
+  """
+  config = {
+    "server_round": server_round,  # The current round of federated learning
+    "local_epochs": 1 if server_round < 2 else 2,  #
+  }
+  return config
 
 # Specify the resources each of your clients need. By default, each
 # client will be allocated 1x CPU and 0x GPUs
@@ -50,11 +65,23 @@ if DEVICE.type == "cuda":
     # Refer to our documentation for more details about Flower Simulations
     # and how to setup these `client_resources`.
 
+net = load_model().to(DEVICE)
+
+# Create FedAvg strategy
+strategy = fl.server.strategy.FedAvg(
+    fraction_fit=1.0,  # Sample 100% of available clients for training
+    fraction_evaluate=0.5,  # Sample 50% of available clients for evaluation
+    evaluate_fn=get_evaluate_fn(net)
+    # min_fit_clients=10,  # Never sample less than 10 clients for training
+    # min_evaluate_clients=2,  # Never sample less than 5 clients for evaluation
+    # min_available_clients=10,  # Wait until all 10 clients are available
+)
+
 # Start simulation
 fl.simulation.start_simulation(
     client_fn=client_fn,
-    num_clients=5,
-    config=fl.server.ServerConfig(num_rounds=5),
+    num_clients=3,
+    config=fl.server.ServerConfig(num_rounds=2),
     strategy=strategy,
     client_resources=client_resources,
 )

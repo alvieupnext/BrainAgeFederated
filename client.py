@@ -34,20 +34,33 @@ class FlowerClient(fl.client.NumPyClient):
       self.name = name
 
     def get_parameters(self, config):
+        print(f"[Client {self.cid}] get_parameters")
         return [val.cpu().numpy() for _, val in self.net.state_dict().items()]
 
     def set_parameters(self, parameters):
         set_parameters(self.net, parameters)
 
     def fit(self, parameters, config):
+      # Read values from config
+        server_round = config["server_round"]
+        local_epochs = config["local_epochs"]
+
+        print(f"[Client {self.cid}, round {server_round}] fit, config: {config}")
         set_parameters(self.net, parameters)
         friendly_name = str(self.name) or str(self.cid)
         client_save_dir = save_dir + friendly_name + "/"
         #If the repository does not exist, create it
         if not os.path.exists(client_save_dir):
             os.makedirs(client_save_dir)
-        model_save_path = client_save_dir + datetime.now().strftime('{}_%d-%m-%y-%H_%M.pt'.format(project_name))
-        train(self.net, self.trainloader, self.valloader, 1, model_save_path)
+        model_save_path = client_save_dir + f"{project_name}_{server_round}.pt"
+        #Save the losses in a file
+        losses_save_path = client_save_dir + project_name + '_losses.csv'
+        #If the losses file does not exist, create it with the headers
+        # Create a new dataframe with the following columns: server_round, epoch, train_loss, val_loss, train_mae, val_mae
+        if not os.path.exists(losses_save_path):
+            with open(losses_save_path, 'w') as f:
+                f.write('server_round,epoch,train_loss,val_loss,time\n')
+        train(self.net, self.trainloader, self.valloader, local_epochs, model_save_path, losses_save_path, server_round)
         return self.get_parameters({}), len(self.trainloader), {}
 
     def evaluate(self, parameters, config):

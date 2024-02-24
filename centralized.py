@@ -29,7 +29,7 @@ warnings.filterwarnings("ignore")
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 #Write a function to train the model
-def train(net, trainloader, valloader, epochs, save_path, patience=5):
+def train(net, trainloader, valloader, epochs, model_save_path, losses_save_path, training_round=0, patience=5):
   criterion = nn.L1Loss()
   optimizer = torch.optim.Adam(net.parameters(), lr=1e-4)
   scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=patience)
@@ -42,7 +42,7 @@ def train(net, trainloader, valloader, epochs, save_path, patience=5):
     train_count = 0
     if num_bad_epochs >= patience:
       print("model reached patience: " + str(patience))
-      return is_new_best, save_path
+      return is_new_best, model_save_path
     for i, data in enumerate(tqdm(trainloader, leave=False)):
       im, age, idsub = data
       im = im.to(device=DEVICE, dtype=torch.float)
@@ -56,16 +56,21 @@ def train(net, trainloader, valloader, epochs, save_path, patience=5):
       train_loss += loss.sum().detach().item()
       optimizer.step()
     train_loss /= train_count
-    #TODO account for different approaches
     val_loss, corr, true_ages, pred_ages, ids_sub, mae = validate(net, valloader)
-    with open('results/losses.txt', 'a+') as f:
-      f.write(str(train_loss) + '\n')
+    #Open losses save path as a pandas dataframe
+    df = pd.read_csv(losses_save_path)
+    #Get the current time as %d-%m-%y-%H_%M
+    now = datetime.datetime.now().strftime('%d-%m-%y-%H_%M')
+    #Add a row to the dataframe with the current losses
+    df = df.append({'server_round': training_round, 'epoch': epoch, 'train_loss': train_loss, 'val_loss': val_loss, 'time': now}, ignore_index=True)
+    #Save the dataframe to the losses save path
+    df.to_csv(losses_save_path, index=False)
     scheduler.step(val_loss)
     if val_loss < best_loss:
       is_new_best = True
       best_loss = val_loss
-      print("Epoch " + str(epoch + 1) + " found new best model - saved in " + save_path + "...")
-      torch.save(net.state_dict(), save_path)
+      print("Epoch " + str(epoch + 1) + " found new best model - saved in " + model_save_path + "...")
+      torch.save(net.state_dict(), model_save_path)
       num_bad_epochs = 0
     else:
       num_bad_epochs += 1
@@ -75,7 +80,7 @@ def train(net, trainloader, valloader, epochs, save_path, patience=5):
       'Epoch: {} of {}, lr: {:.2E}, train loss: {:.2f}, valid loss: {:.2f}, corr: {:.2f}, best loss {:.2f}, number of epochs without improvement: {}'.format(
         epoch + 1, epochs,
         lr, train_loss, val_loss, corr, best_loss, num_bad_epochs))
-  return is_new_best, save_path
+  return is_new_best, model_save_path
 
 #Validates how good a model used
 #Acts as the validator with the valloader and as the tester with the testloader
