@@ -164,16 +164,20 @@ def get_data_transforms(augmentation='none'):
   return Compose(base_transforms)
 
 
-def split_dataset_ids(df, kcrossval=None, icross=-1, test_size=0.15, random_seed=10):
-  """Split dataset IDs for training and validation sets."""
+def split_dataset_ids(df, kcrossval=None, icross=-1, test_size=0.15, random_seed=10, dataset_scale=1.0):
+  """Split dataset IDs for training and validation sets, with an option to scale the dataset size."""
   IDs = df['ID'].unique().tolist()
+  # Scale the dataset by selecting a subset of IDs based on the dataset_scale parameter
+  scaled_size = int(len(IDs) * dataset_scale)
+  np.random.seed(random_seed)  # Ensure reproducibility
+  scaled_IDs = np.random.choice(IDs, scaled_size, replace=False).tolist()
 
   if kcrossval is None:
-    return train_test_split(IDs, test_size=test_size, random_state=random_seed)
+    return train_test_split(scaled_IDs, test_size=test_size, random_state=random_seed)
   else:
-    fold_size = len(IDs) // kcrossval
-    valid_ids = IDs[icross * fold_size:(icross + 1) * fold_size]
-    train_ids = [id_ for id_ in IDs if id_ not in valid_ids]
+    fold_size = len(scaled_IDs) // kcrossval
+    valid_ids = scaled_IDs[icross * fold_size:(icross + 1) * fold_size]
+    train_ids = [id_ for id_ in scaled_IDs if id_ not in valid_ids]
     return train_ids, valid_ids
 
 
@@ -185,12 +189,12 @@ def get_loader(df, ids, transforms, batch_size):
   return DataLoader(dataset_obj, batch_size=batch_size, sampler=sampler), len(idx)
 
 
-def get_train_valid_loader(df, batch_size=4, random_seed=10, aug='none', kcrossval=None, icross=-1):
+def get_train_valid_loader(df, batch_size=4, random_seed=10, aug='none', kcrossval=None, icross=-1, dataset_scale=1.0):
   print('Composing transformations and structuring loader datasets...')
   train_transforms = get_data_transforms(augmentation=aug)
   valid_transforms = get_data_transforms(augmentation='none')
 
-  train_ids, valid_ids = split_dataset_ids(df, kcrossval, icross, random_seed=random_seed)
+  train_ids, valid_ids = split_dataset_ids(df, kcrossval, icross, random_seed=random_seed, dataset_scale=dataset_scale)
 
   train_loader, num_train = get_loader(df, train_ids, train_transforms, batch_size)
   valid_loader, num_valid = get_loader(df, valid_ids, valid_transforms, batch_size)
@@ -199,10 +203,15 @@ def get_train_valid_loader(df, batch_size=4, random_seed=10, aug='none', kcrossv
   return train_loader, valid_loader
 
 
-def get_test_loader(df, batch_size):
+def get_test_loader(df, batch_size, dataset_scale=1.0):
   print('Composing transformations and structuring test loader dataset...')
   test_transforms = get_data_transforms(augmentation='none')
-  test_ids = df['ID'].unique().tolist()  # Assuming each row is a unique scan
+  # Get all unique IDs and then scale the list according to the dataset_scale parameter
+  all_test_ids = df['ID'].unique().tolist()
+  scaled_size = int(len(all_test_ids) * dataset_scale)
+  np.random.seed(10)  # Ensure reproducibility, you can choose any seed you prefer
+  test_ids = np.random.choice(all_test_ids, scaled_size, replace=False).tolist()
+
   test_loader, num_test = get_loader(df, test_ids, test_transforms, batch_size)
 
   print(f'Number of test scans: {num_test}')
