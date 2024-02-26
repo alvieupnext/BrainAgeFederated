@@ -146,7 +146,6 @@ class dataset(Dataset):
 
   def __getitem__(self, idx):
     stack_name = self.file_frame.iloc[idx]['processed_file_name']
-    print(stack_name)
     tensor = self.transform(stack_name)
     tensor = (tensor - tensor.mean()) / tensor.std()
     tensor = torch.clamp(tensor, -1, 5)
