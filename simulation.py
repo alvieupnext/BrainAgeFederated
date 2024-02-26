@@ -80,7 +80,7 @@ if DEVICE.type == "cuda":
     client_resources = {"num_cpus": 1, "num_gpus": 1.0}
     # Refer to our documentation for more details about Flower Simulations
     # and how to setup these `client_resources`.
-dwood_seed_2 = dwood + 'seed_31.pt'
+dwood_seed_2 = dwood + 'seed_35.pt'
 net = load_model(dwood_seed_2).to(DEVICE)
 
 weights = [val.cpu().numpy() for _, val in net.state_dict().items()]
