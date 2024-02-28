@@ -24,70 +24,134 @@ from monai.transforms import (
 from scipy.stats import beta
 import pandas as pd
 
+from utils import dwood
+
 warnings.filterwarnings("ignore")
 
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-#Write a function to train the model
+def train_epoch(net, trainloader, criterion, optimizer):
+  net.train()
+  train_loss = 0.0
+  train_count = 0
+  for data in tqdm(trainloader, leave=False):
+    im, age, _ = data
+    im = im.to(device=DEVICE, dtype=torch.float)
+    age = age.to(device=DEVICE, dtype=torch.float).reshape(-1, 1)
+    optimizer.zero_grad()
+    pred_age = net(im)
+    loss = criterion(pred_age, age)
+    loss.backward()
+    optimizer.step()
+    train_count += im.shape[0]
+    train_loss += loss.sum().detach().item()
+  train_loss /= train_count
+  return train_loss
+
+def update_loss_df(losses_save_path, training_round, epoch, train_loss, val_loss):
+  df = pd.read_csv(losses_save_path)
+  now = datetime.datetime.now().strftime('%d-%m-%y-%H_%M')
+  new_row = pd.DataFrame({
+    'server_round': [training_round],
+    'epoch': [epoch],
+    'train_loss': [train_loss],
+    'val_loss': [val_loss],
+    'time': [now]})
+  df = pd.concat([df, new_row], ignore_index=True)
+  df.to_csv(losses_save_path, index=False)
+
+def check_improvement(val_loss, best_loss, net, model_save_path, epoch, num_bad_epochs):
+  if val_loss < best_loss:
+    print(f"Epoch {epoch + 1} found new best model - saved in {model_save_path}...")
+    torch.save(net.state_dict(), model_save_path)
+    return True, val_loss, 0  # is_new_best, best_loss, num_bad_epochs
+  else:
+    return False, best_loss, num_bad_epochs + 1
+
 def train(net, trainloader, valloader, epochs, model_save_path, losses_save_path, training_round=0, patience=5):
   criterion = nn.L1Loss()
   optimizer = torch.optim.Adam(net.parameters(), lr=1e-4)
   scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=patience)
-  is_new_best = False
   best_loss = 1e9
   num_bad_epochs = 0
+  is_new_best = False
+
   for epoch in range(epochs):
-    train_loss = 0.0
-    net.train()
-    train_count = 0
     if num_bad_epochs >= patience:
-      print("model reached patience: " + str(patience))
-      return is_new_best, model_save_path
-    for i, data in enumerate(tqdm(trainloader, leave=False)):
-      im, age, idsub = data
-      im = im.to(device=DEVICE, dtype=torch.float)
-      age = age.to(device=DEVICE, dtype=torch.float)
-      age = age.reshape(-1, 1)
-      optimizer.zero_grad()
-      pred_age = net(im)
-      loss = criterion(pred_age, age)
-      loss.backward()
-      train_count += im.shape[0]
-      train_loss += loss.sum().detach().item()
-      optimizer.step()
-    train_loss /= train_count
+      print(f"Model reached patience: {patience}")
+      break
+    train_loss = train_epoch(net, trainloader, criterion, optimizer)
     val_loss, corr, true_ages, pred_ages, ids_sub, mae = validate(net, valloader)
-    #Open losses save path as a pandas dataframe
-    df = pd.read_csv(losses_save_path)
-    #Get the current time as %d-%m-%y-%H_%M
-    now = datetime.datetime.now().strftime('%d-%m-%y-%H_%M')
-    # Create a new DataFrame with the data to append
-    new_row = pd.DataFrame({'server_round': [training_round],
-                            'epoch': [epoch],
-                            'train_loss': [train_loss],
-                            'val_loss': [val_loss],
-                            'time': [now]})
-
-    # Use concat to add the new row to the existing DataFrame
-    df = pd.concat([df, new_row], ignore_index=True)
-    #Save the dataframe to the losses save path
-    df.to_csv(losses_save_path, index=False)
+    update_loss_df(losses_save_path, training_round, epoch, train_loss, val_loss)
+    is_new_best, best_loss, num_bad_epochs = check_improvement(val_loss, best_loss, net, model_save_path, epoch, num_bad_epochs)
     scheduler.step(val_loss)
-    if val_loss < best_loss:
-      is_new_best = True
-      best_loss = val_loss
-      print("Epoch " + str(epoch + 1) + " found new best model - saved in " + model_save_path + "...")
-      torch.save(net.state_dict(), model_save_path)
-      num_bad_epochs = 0
-    else:
-      num_bad_epochs += 1
-
     lr = optimizer.param_groups[0]['lr']
     print(
-      'Epoch: {} of {}, lr: {:.2E}, train loss: {:.2f}, valid loss: {:.2f}, corr: {:.2f}, best loss {:.2f}, number of epochs without improvement: {}'.format(
-        epoch + 1, epochs,
-        lr, train_loss, val_loss, corr, best_loss, num_bad_epochs))
+      f'Epoch: {epoch + 1} of {epochs}, lr: {lr:.2E}, train loss: {train_loss:.2f}, valid loss: {val_loss:.2f}, corr: {corr:.2f}, best loss {best_loss:.2f}, number of epochs without improvement: {num_bad_epochs}')
+
   return is_new_best, model_save_path
+
+
+#Write a function to train the model
+# def train(net, trainloader, valloader, epochs, model_save_path, losses_save_path, training_round=0, patience=5):
+#   criterion = nn.L1Loss()
+#   optimizer = torch.optim.Adam(net.parameters(), lr=1e-4)
+#   scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=patience)
+#   is_new_best = False
+#   best_loss = 1e9
+#   num_bad_epochs = 0
+#   for epoch in range(epochs):
+#     train_loss = 0.0
+#     net.train()
+#     train_count = 0
+#     if num_bad_epochs >= patience:
+#       print("model reached patience: " + str(patience))
+#       return is_new_best, model_save_path
+#     for i, data in enumerate(tqdm(trainloader, leave=False)):
+#       im, age, idsub = data
+#       im = im.to(device=DEVICE, dtype=torch.float)
+#       age = age.to(device=DEVICE, dtype=torch.float)
+#       age = age.reshape(-1, 1)
+#       optimizer.zero_grad()
+#       pred_age = net(im)
+#       loss = criterion(pred_age, age)
+#       loss.backward()
+#       train_count += im.shape[0]
+#       train_loss += loss.sum().detach().item()
+#       optimizer.step()
+#     train_loss /= train_count
+#     val_loss, corr, true_ages, pred_ages, ids_sub, mae = validate(net, valloader)
+#     #Open losses save path as a pandas dataframe
+#     df = pd.read_csv(losses_save_path)
+#     #Get the current time as %d-%m-%y-%H_%M
+#     now = datetime.datetime.now().strftime('%d-%m-%y-%H_%M')
+#     # Create a new DataFrame with the data to append
+#     new_row = pd.DataFrame({'server_round': [training_round],
+#                             'epoch': [epoch],
+#                             'train_loss': [train_loss],
+#                             'val_loss': [val_loss],
+#                             'time': [now]})
+#
+#     # Use concat to add the new row to the existing DataFrame
+#     df = pd.concat([df, new_row], ignore_index=True)
+#     #Save the dataframe to the losses save path
+#     df.to_csv(losses_save_path, index=False)
+#     scheduler.step(val_loss)
+#     if val_loss < best_loss:
+#       is_new_best = True
+#       best_loss = val_loss
+#       print("Epoch " + str(epoch + 1) + " found new best model - saved in " + model_save_path + "...")
+#       torch.save(net.state_dict(), model_save_path)
+#       num_bad_epochs = 0
+#     else:
+#       num_bad_epochs += 1
+#
+#     lr = optimizer.param_groups[0]['lr']
+#     print(
+#       'Epoch: {} of {}, lr: {:.2E}, train loss: {:.2f}, valid loss: {:.2f}, corr: {:.2f}, best loss {:.2f}, number of epochs without improvement: {}'.format(
+#         epoch + 1, epochs,
+#         lr, train_loss, val_loss, corr, best_loss, num_bad_epochs))
+#   return is_new_best, model_save_path
 
 #Validates how good a model used
 #Acts as the validator with the valloader and as the tester with the testloader
@@ -337,15 +401,33 @@ def run_model(project_name, epochs=10):
   if not os.path.exists(save_dir):
     os.makedirs(save_dir)
     print("new directory created for " + project_name)
-  csv_file = 'patients_dataset_6326_test_downsized_5.csv'
+  csv_file = 'patients_dataset_6326_train.csv'
   #Print the device we are currently working on
   print(DEVICE)
   df = pd.read_csv(csv_file)
-  trainloader, valloader = get_train_valid_loader(df, batch_size=4, random_seed=10, aug='none', kcrossval=None, icross=-1)
+  trainloader, valloader = get_train_valid_loader(df, batch_size=3, random_seed=10, aug='none', kcrossval=None, icross=-1)
   model_save_path = save_dir + datetime.datetime.now().strftime('{}_%d-%m-%y-%H_%M.pt'.format(project_name))
-  net = DenseNet(3, 1, 1)  # , dropout_prob=0.02)
-  net = net.to(device=DEVICE)
-  _, save_path = train(net, trainloader, valloader, epochs, model_save_path)
+  losses_save_path = save_dir + project_name + '_losses.csv'
+  # Create a new dataframe with the following columns: server_round, epoch, train_loss, val_loss, train_mae, val_mae
+  if not os.path.exists(losses_save_path):
+    with open(losses_save_path, 'w') as f:
+      f.write('server_round,epoch,train_loss,val_loss,time\n')
+  dwood_seed_2 = dwood + 'seed_31.pt'
+  net = load_model(dwood_seed_2).to(DEVICE)
+  _, save_path = train(net, trainloader, valloader, epochs, model_save_path, losses_save_path)
+  #Load test data
+  testdf = pd.read_csv('patients_dataset_6326_test.csv')
+  testloader = get_test_loader(testdf, batch_size=4)
+  #Validate the model using the test data
+  validate(net, testloader)
+  val_losses, _, _, _, _, val_mae = validate(net, testloader)
+  # If the repository does not exist, create it
+  if not os.path.exists(save_dir):
+    os.makedirs(save_dir)
+  # Write the losses to a file in save_dir
+  with open(save_dir + 'centralized_losses.txt', 'a') as f:
+    f.write(f"{val_losses}\n")
+
   return save_path
 
 
@@ -354,7 +436,16 @@ def run_model(project_name, epochs=10):
 
 if __name__ == '__main__':
   # df = pd.read_csv('patients_dataset_6326_train.csv')
-  split_save_datasets('patients_dataset_6326.csv')
+  # split_save_datasets('patients_dataset_6326.csv')
+  # train_df = pd.read_csv('patients_dataset_6326_train.csv')
+  # test_df = pd.read_csv('patients_dataset_6326_test.csv')
+  # print(f'Training dataset size: {len(train_df)}')
+  # print(f'Testing dataset size: {len(test_df)}')
+  # net = load_model().to(DEVICE)
+  # trainloader, valloader = get_train_valid_loader(train_df, batch_size=3, random_seed=10, aug='none', kcrossval=None, icross=-1)
+  # testloader = get_test_loader(test_df, batch_size=4)
+  #
+
   # #Group the datasets
   # dfs = group_datasets(df, 'dataset')
   # #For every dataframe
@@ -365,7 +456,7 @@ if __name__ == '__main__':
   #   print(df.head())
 
   # downsize_data('patients_dataset_6326_test.csv', percentage=5)
-  # run_model('test', epochs=10)
+  run_model('centralized_DWood_seed_31', epochs=10)
 
 
 
