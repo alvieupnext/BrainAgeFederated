@@ -44,10 +44,7 @@ class FlowerClient(fl.client.NumPyClient):
     def set_parameters(self, parameters):
         set_parameters(self.net, parameters)
 
-    def train(self, config, model_save_path, losses_save_path, patience=5):
-        criterion = nn.L1Loss()
-        optimizer = torch.optim.Adam(self.net.parameters(), lr=1e-4)
-        scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=patience)
+    def train(self, config, model_save_path, losses_save_path, criterion, optimizer, scheduler, patience=5):
         best_loss = 1e9
         num_bad_epochs = 0
         is_new_best = False
@@ -107,7 +104,11 @@ class FlowerClient(fl.client.NumPyClient):
         if not os.path.exists(losses_save_path):
             with open(losses_save_path, 'w') as f:
                 f.write('server_round,epoch,train_loss,val_loss,time\n')
-        self.train(config, model_save_path, losses_save_path)
+
+        criterion = nn.L1Loss()
+        optimizer = torch.optim.Adam(self.net.parameters(), lr=1e-4)
+        scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5)
+        self.train(config, model_save_path, losses_save_path, criterion, optimizer, scheduler)
         return self.get_parameters({}), len(self.trainloader), {}
 
     def evaluate(self, parameters, config):
