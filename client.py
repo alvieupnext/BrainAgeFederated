@@ -27,14 +27,13 @@ def set_parameters(model, parameters):
 
 class FlowerClient(fl.client.NumPyClient):
 
-    def __init__(self, net, project_name, trainloader, valloader, cid, name=None):
+    def __init__(self, net, project_name, save_dir, trainloader, valloader, cid, name=None):
       self.net = net
       self.trainloader = trainloader
       self.valloader = valloader
       self.cid = cid
       self.name = name
       self.project_name = project_name
-      save_dir = './utils/models/' + project_name + "/"
       self.save_dir = save_dir
 
     def get_parameters(self, config):

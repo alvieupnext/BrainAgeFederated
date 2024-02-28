@@ -1,3 +1,5 @@
+import argparse
+
 from flwr.server.client_proxy import ClientProxy
 
 from centralized import load_model, DEVICE, get_test_loader, group_datasets, get_train_valid_loader, validate
@@ -11,7 +13,7 @@ import numpy as np
 import torch
 
 from strategy import SaveFedAvg, SaveFedProx
-from utils import project_name, save_dir, dwood
+from utils import dwood
 
 # Load patients_dataset_6326_train.csv
 df = pd.read_csv('patients_dataset_6326_train.csv')
@@ -28,29 +30,33 @@ print(dataloaders)
 print("Loaded test data")
 testdf = pd.read_csv('patients_dataset_6326_test.csv')
 testloader = get_test_loader(testdf, batch_size=4, dataset_scale=1)
-def client_fn(cid: str) -> FlowerClient:
-  """Create a Flower client representing a single organization."""
 
-  # Load model
-  net = load_model().to(DEVICE)
+#Generate a client function which takes the project name and returns a function that creates a FlowerClient
+def gen_client_fn(project_name, strategy, save_dir):
+  def client_fn(cid: str) -> FlowerClient:
+    """Create a Flower client representing a single organization."""
 
-  # Dataloaders is a dict with name as key and a tuple with trainloader and valloader as value
-  name = names[int(cid)]
-  trainloader, valloader = dataloaders[name]
+    # Load model
+    net = load_model().to(DEVICE)
 
+    # Dataloaders is a dict with name as key and a tuple with trainloader and valloader as value
+    name = names[int(cid)]
+    trainloader, valloader = dataloaders[name]
 
-  # Create a  single Flower client representing a single organization
-  return FlowerClient(net, project_name, trainloader, valloader, cid, name)
+    if strategy == 'FedAvg':
+      # Create a  single Flower client representing a single organization
+      return FlowerClient(net, project_name, save_dir, trainloader, valloader, cid, name)
+    elif strategy == 'FedProx':
+      # Create a  single FedProx representing a single organization
+      return FedProxClient(net, project_name, save_dir, trainloader, valloader, cid, name)
+  return client_fn
 
 #Evaluation server side using test csv
-def get_evaluate_fn(model):
+def get_evaluate_fn(model, save_dir):
   def evaluate(server_round: int, parameters: NDArrays, config: Dict[str, Scalar]) -> Optional[Tuple[float, Dict[str, Scalar]]]:
     print("Evaluating round", server_round)
     set_parameters(model, parameters)
     val_losses, _, _, _, _, val_mae = validate(model, testloader)
-    # If the repository does not exist, create it
-    if not os.path.exists(save_dir):
-      os.makedirs(save_dir)
     #Write the losses to a file in save_dir
     with open(save_dir + 'centralized_losses.txt', 'a') as f:
       f.write(f"{server_round},{val_losses}\n")
@@ -81,56 +87,70 @@ if DEVICE.type == "cuda":
     # Refer to our documentation for more details about Flower Simulations
     # and how to setup these `client_resources`.
 # dwood_seed_2 = dwood + 'seed_67.pt'
-net = load_model().to(DEVICE)
 
-weights = [val.cpu().numpy() for _, val in net.state_dict().items()]
+# #Client_fn for fedprox
+# def client_fn_fedprox(cid: str) -> FlowerClient:
+#   """Create a Flower client representing a single organization."""
+#
+#   # Load model
+#   net = load_model().to(DEVICE)
+#
+#   # Dataloaders is a dict with name as key and a tuple with trainloader and valloader as value
+#   name = names[int(cid)]
+#   trainloader, valloader = dataloaders[name]
+#
+#
+#   # Create a  single FedProx representing a single organization
+#   return FedProxClient(net, project_name, trainloader, valloader, cid, name)
 
-parameters = fl.common.ndarrays_to_parameters(weights)
-
-#Client_fn for fedprox
-def client_fn_fedprox(cid: str) -> FlowerClient:
-  """Create a Flower client representing a single organization."""
-
-  # Load model
-  net = load_model().to(DEVICE)
-
-  # Dataloaders is a dict with name as key and a tuple with trainloader and valloader as value
-  name = names[int(cid)]
-  trainloader, valloader = dataloaders[name]
-
-
-  # Create a  single FedProx representing a single organization
-  return FedProxClient(net, project_name, trainloader, valloader, cid, name)
-
-
+# A function that returns a strategy and client_fn based on the strategy and save_dir
+def get_config(strategy, save_dir, net, parameters):
+  client_fn = gen_client_fn(project_name, strategy, save_dir)
+  if strategy == 'FedAvg':
+    return SaveFedAvg(
+      fraction_fit=1.0,  # Sample 100% of available clients for training
+      fraction_evaluate=0.5,  # Sample 50% of available clients for evaluation
+      evaluate_fn=get_evaluate_fn(net, save_dir),
+      on_fit_config_fn=fit_config,
+      initial_parameters=parameters,
+    ), client_fn
+  elif strategy == 'FedProx':
+    return SaveFedProx(
+      fraction_fit=1.0,  # Sample 100% of available clients for training
+      fraction_evaluate=0.5,  # Sample 50% of available clients for evaluation
+      evaluate_fn=get_evaluate_fn(net, save_dir),
+      on_fit_config_fn=fit_config,
+      initial_parameters=parameters,
+      proximal_mu=1.0,
+    ), client_fn
 # Create FedAvg strategy
-strategy = fl.server.strategy.FedAvg(
-    fraction_fit=1.0,  # Sample 100% of available clients for training
-    fraction_evaluate=0.5,  # Sample 50% of available clients for evaluation
-    evaluate_fn=get_evaluate_fn(net),
-    on_fit_config_fn=fit_config,  # Pass the fit_config function
-    initial_parameters=parameters,
-    # min_fit_clients=10,  # Never sample less than 10 clients for training
-    # min_evaluate_clients=2,  # Never sample less than 5 clients for evaluation
-    # min_available_clients=10,  # Wait until all 10 clients are available
-)
-
-fedavg = SaveFedAvg(
-  fraction_fit=1.0,  # Sample 100% of available clients for training
-    fraction_evaluate=0.5,  # Sample 50% of available clients for evaluation
-    evaluate_fn=get_evaluate_fn(net),
-    on_fit_config_fn=fit_config,
-  initial_parameters=parameters,
-)
-
-fedprox = SaveFedProx(
-  fraction_fit=1.0,  # Sample 100% of available clients for training
-    fraction_evaluate=0.5,  # Sample 50% of available clients for evaluation
-    evaluate_fn=get_evaluate_fn(net),
-    on_fit_config_fn=fit_config,
-  initial_parameters=parameters,
-  proximal_mu=1.0,
-)
+# strategy = fl.server.strategy.FedAvg(
+#     fraction_fit=1.0,  # Sample 100% of available clients for training
+#     fraction_evaluate=0.5,  # Sample 50% of available clients for evaluation
+#     evaluate_fn=get_evaluate_fn(net),
+#     on_fit_config_fn=fit_config,  # Pass the fit_config function
+#     initial_parameters=parameters,
+#     # min_fit_clients=10,  # Never sample less than 10 clients for training
+#     # min_evaluate_clients=2,  # Never sample less than 5 clients for evaluation
+#     # min_available_clients=10,  # Wait until all 10 clients are available
+# )
+#
+# fedavg = SaveFedAvg(
+#   fraction_fit=1.0,  # Sample 100% of available clients for training
+#     fraction_evaluate=0.5,  # Sample 50% of available clients for evaluation
+#     evaluate_fn=get_evaluate_fn(net),
+#     on_fit_config_fn=fit_config,
+#   initial_parameters=parameters,
+# )
+#
+# fedprox = SaveFedProx(
+#   fraction_fit=1.0,  # Sample 100% of available clients for training
+#     fraction_evaluate=0.5,  # Sample 50% of available clients for evaluation
+#     evaluate_fn=get_evaluate_fn(net),
+#     on_fit_config_fn=fit_config,
+#   initial_parameters=parameters,
+#   proximal_mu=1.0,
+# )
 
 # # Start simulation
 # fl.simulation.start_simulation(
@@ -141,10 +161,57 @@ fedprox = SaveFedProx(
 #     client_resources=client_resources,
 # )
 
-fl.simulation.start_simulation(
-    client_fn=client_fn_fedprox,
+# fl.simulation.start_simulation(
+#     client_fn=client_fn_fedprox,
+#     num_clients=len(dfs),
+#     config=fl.server.ServerConfig(num_rounds=5),
+#     strategy=fedprox,
+#     client_resources=client_resources,
+# )
+
+#Generate a main function to run the simulation
+if __name__ == "__main__":
+
+  parser = argparse.ArgumentParser()
+  #Argument for DWood seed
+  parser.add_argument('--seed', type=str, required=False)
+  #Argument for Federated Strategy
+  parser.add_argument('--strategy', type=str, required=False)
+  #FedAvg is default
+  parser.set_defaults(strategy='FedAvg')
+  args = parser.parse_args()
+  #For the mode, if no seed provided, mode is RW
+  if args.seed is None:
+    mode = 'RW'
+  else:
+    mode = 'DWood'
+  seed = f'_seed_{args.seed}' if args.seed is not None else ''
+  project_name = f'{args.strategy}_{mode}_Dataset' + seed
+  #Print the project name
+  print(f'Now operating under project name {project_name}...')
+  save_dir = './utils/models/' + project_name + "/"
+  print(f'Saving models to {save_dir}...')
+  # If the repository does not exist, create it
+  if not os.path.exists(save_dir):
+    print(f"Creating directory {save_dir}...")
+    os.makedirs(save_dir)
+
+  #Load the model
+  #If a seed is defined, use it
+  dwood_seed = dwood + f'seed_{args.seed}.pt'
+  net = load_model(dwood_seed).to(DEVICE)
+
+  weights = [val.cpu().numpy() for _, val in net.state_dict().items()]
+
+  parameters = fl.common.ndarrays_to_parameters(weights)
+
+  #get the client_fn and strategy from the arguments
+  strategy, client_fn = get_config(args.strategy, save_dir, net, parameters)
+
+  fl.simulation.start_simulation(
+    client_fn=client_fn,
     num_clients=len(dfs),
     config=fl.server.ServerConfig(num_rounds=5),
-    strategy=fedprox,
+    strategy=strategy,
     client_resources=client_resources,
-)
+  )
