@@ -2,9 +2,10 @@ from datetime import datetime
 from random import random
 import os
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+from tqdm import tqdm
 
 from centralized import (get_test_loader, get_train_valid_loader, group_datasets,
-                         train, validate, convert_state_dict, load_model, DEVICE)
+                         train, validate, convert_state_dict, load_model, DEVICE, check_improvement, update_loss_df)
 from collections import OrderedDict
 import flwr as fl
 import torch.nn as nn
@@ -43,10 +44,53 @@ class FlowerClient(fl.client.NumPyClient):
     def set_parameters(self, parameters):
         set_parameters(self.net, parameters)
 
+    def train(self, config, model_save_path, losses_save_path, patience=5):
+        criterion = nn.L1Loss()
+        optimizer = torch.optim.Adam(self.net.parameters(), lr=1e-4)
+        scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=patience)
+        best_loss = 1e9
+        num_bad_epochs = 0
+        is_new_best = False
+        server_round = config["server_round"]
+        epochs = config["local_epochs"]
+
+        for epoch in range(epochs):
+          if num_bad_epochs >= patience:
+            print(f"Model reached patience: {patience}")
+            break
+          train_loss = self.train_epoch(criterion, optimizer)
+          val_loss, corr, true_ages, pred_ages, ids_sub, mae = validate(self.net, self.valloader)
+          update_loss_df(losses_save_path, server_round, epoch, train_loss, val_loss)
+          is_new_best, best_loss, num_bad_epochs = check_improvement(val_loss, best_loss, self.net, model_save_path, epoch,
+                                                                     num_bad_epochs)
+          scheduler.step(val_loss)
+          lr = optimizer.param_groups[0]['lr']
+          print(
+            f'Epoch: {epoch + 1} of {epochs}, lr: {lr:.2E}, train loss: {train_loss:.2f}, valid loss: {val_loss:.2f}, corr: {corr:.2f}, best loss {best_loss:.2f}, number of epochs without improvement: {num_bad_epochs}')
+
+        return is_new_best, model_save_path
+
+    def train_epoch(self, criterion, optimizer):
+      self.net.train()
+      train_loss = 0.0
+      train_count = 0
+      for data in tqdm(self.trainloader, leave=False):
+        im, age, _ = data
+        im = im.to(device=DEVICE, dtype=torch.float)
+        age = age.to(device=DEVICE, dtype=torch.float).reshape(-1, 1)
+        optimizer.zero_grad()
+        pred_age = self.net(im)
+        loss = criterion(pred_age, age)
+        loss.backward()
+        optimizer.step()
+        train_count += im.shape[0]
+        train_loss += loss.sum().detach().item()
+      train_loss /= train_count
+      return train_loss
+
     def fit(self, parameters, config):
       # Read values from config
         server_round = config["server_round"]
-        local_epochs = config["local_epochs"]
 
         print(f"[Client {self.cid}, friendly name {self.name}, round {server_round}] fit, config: {config}")
         set_parameters(self.net, parameters)
@@ -63,7 +107,7 @@ class FlowerClient(fl.client.NumPyClient):
         if not os.path.exists(losses_save_path):
             with open(losses_save_path, 'w') as f:
                 f.write('server_round,epoch,train_loss,val_loss,time\n')
-        train(self.net, self.trainloader, self.valloader, local_epochs, model_save_path, losses_save_path, server_round)
+        self.train(config, model_save_path, losses_save_path)
         return self.get_parameters({}), len(self.trainloader), {}
 
     def evaluate(self, parameters, config):
