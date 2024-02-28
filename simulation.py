@@ -113,6 +113,7 @@ def get_config(strategy, save_dir, net, parameters):
       evaluate_fn=get_evaluate_fn(net, save_dir),
       on_fit_config_fn=fit_config,
       initial_parameters=parameters,
+      save_dir=save_dir,
     ), client_fn
   elif strategy == 'FedProx':
     return SaveFedProx(
@@ -122,6 +123,7 @@ def get_config(strategy, save_dir, net, parameters):
       on_fit_config_fn=fit_config,
       initial_parameters=parameters,
       proximal_mu=1.0,
+      save_dir=save_dir,
     ), client_fn
 # Create FedAvg strategy
 # strategy = fl.server.strategy.FedAvg(
