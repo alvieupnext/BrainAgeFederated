@@ -10,7 +10,7 @@ import os
 import numpy as np
 import torch
 
-from strategy import SaveModelStrategy
+from strategy import SaveFedAvg, SaveFedProx
 from utils import project_name, save_dir, dwood
 
 # Load patients_dataset_6326_train.csv
@@ -100,7 +100,7 @@ strategy = fl.server.strategy.FedAvg(
     # min_available_clients=10,  # Wait until all 10 clients are available
 )
 
-save_strategy = SaveModelStrategy(
+fedavg = SaveFedAvg(
   fraction_fit=1.0,  # Sample 100% of available clients for training
     fraction_evaluate=0.5,  # Sample 50% of available clients for evaluation
     evaluate_fn=get_evaluate_fn(net),
@@ -108,11 +108,20 @@ save_strategy = SaveModelStrategy(
   initial_parameters=parameters,
 )
 
+fedprox = SaveFedProx(
+  fraction_fit=1.0,  # Sample 100% of available clients for training
+    fraction_evaluate=0.5,  # Sample 50% of available clients for evaluation
+    evaluate_fn=get_evaluate_fn(net),
+    on_fit_config_fn=fit_config,
+  initial_parameters=parameters,
+  proximal_mu=1.0,
+)
+
 # Start simulation
 fl.simulation.start_simulation(
     client_fn=client_fn,
     num_clients=len(dfs),
     config=fl.server.ServerConfig(num_rounds=5),
-    strategy=save_strategy,
+    strategy=fedavg,
     client_resources=client_resources,
 )
