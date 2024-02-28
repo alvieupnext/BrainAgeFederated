@@ -201,7 +201,7 @@ if __name__ == "__main__":
   #Load the model
   #If a seed is defined, use it
   dwood_seed = dwood + f'seed_{args.seed}.pt'
-  net = load_model(dwood_seed).to(DEVICE)
+  net = load_model(dwood_seed).to(DEVICE) if mode == 'DWood' else load_model().to(DEVICE)
 
   weights = [val.cpu().numpy() for _, val in net.state_dict().items()]
 

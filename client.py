@@ -50,7 +50,7 @@ class FlowerClient(fl.client.NumPyClient):
         server_round = config["server_round"]
         epochs = config["local_epochs"]
         #Set the parameters of the model to the parameters received
-        set_parameters(self.net, parameters)
+        self.set_parameters(parameters)
 
         for epoch in range(epochs):
           if num_bad_epochs >= patience:
@@ -108,9 +108,9 @@ class FlowerClient(fl.client.NumPyClient):
         criterion = nn.L1Loss()
         optimizer = torch.optim.Adam(self.net.parameters(), lr=1e-4)
         scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5)
-      #Make a copy of the global parameters
-        global_params = [param.clone().detach() for param in self.net.parameters()]
-        self.train(config, model_save_path, losses_save_path, criterion, optimizer, scheduler, global_params)
+      # #Make a copy of the global parameters
+      #   global_params = [param.clone().cpu().detach() for param in self.net.parameters()]
+        self.train(config, model_save_path, losses_save_path, criterion, optimizer, scheduler, parameters)
         return self.get_parameters({}), len(self.trainloader), {}
 
     def evaluate(self, parameters, config):
@@ -127,6 +127,9 @@ class FedProxClient(FlowerClient):
     server_round = config["server_round"]
     epochs = config["local_epochs"]
     proximal_mu = config["proximal_mu"]
+    # Set the global parameters to the parameters received
+    self.set_parameters(parameters)
+    global_params = [val.detach().clone() for val in self.net.parameters()]
 
     best_loss = 1e9
     num_bad_epochs = 0
@@ -138,7 +141,7 @@ class FedProxClient(FlowerClient):
       if num_bad_epochs >= patience:
         print(f"Model reached patience: {patience}")
         break
-      train_loss = self.train_epoch_proximal(criterion, optimizer, proximal_mu, parameters)
+      train_loss = self.train_epoch_proximal(criterion, optimizer, proximal_mu, global_params)
       val_loss, corr, true_ages, pred_ages, ids_sub, mae = validate(self.net, self.valloader)
       update_loss_df(losses_save_path, server_round, epoch, train_loss, val_loss)
       is_new_best, best_loss, num_bad_epochs = check_improvement(val_loss, best_loss, self.net, model_save_path, epoch,
