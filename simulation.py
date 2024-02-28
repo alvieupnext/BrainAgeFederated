@@ -1,7 +1,7 @@
 from flwr.server.client_proxy import ClientProxy
 
 from centralized import load_model, DEVICE, get_test_loader, group_datasets, get_train_valid_loader, validate
-from client import FlowerClient, set_parameters
+from client import FlowerClient, set_parameters, FedProxClient
 import pandas as pd
 import flwr as fl
 from flwr.common import NDArrays, Scalar, FitRes, Parameters
@@ -80,12 +80,27 @@ if DEVICE.type == "cuda":
     client_resources = {"num_cpus": 1, "num_gpus": 1.0}
     # Refer to our documentation for more details about Flower Simulations
     # and how to setup these `client_resources`.
-dwood_seed_2 = dwood + 'seed_67.pt'
-net = load_model(dwood_seed_2).to(DEVICE)
+# dwood_seed_2 = dwood + 'seed_67.pt'
+net = load_model().to(DEVICE)
 
 weights = [val.cpu().numpy() for _, val in net.state_dict().items()]
 
 parameters = fl.common.ndarrays_to_parameters(weights)
+
+#Client_fn for fedprox
+def client_fn_fedprox(cid: str) -> FlowerClient:
+  """Create a Flower client representing a single organization."""
+
+  # Load model
+  net = load_model().to(DEVICE)
+
+  # Dataloaders is a dict with name as key and a tuple with trainloader and valloader as value
+  name = names[int(cid)]
+  trainloader, valloader = dataloaders[name]
+
+
+  # Create a  single FedProx representing a single organization
+  return FedProxClient(net, project_name, trainloader, valloader, cid, name)
 
 
 # Create FedAvg strategy
@@ -117,11 +132,19 @@ fedprox = SaveFedProx(
   proximal_mu=1.0,
 )
 
-# Start simulation
+# # Start simulation
+# fl.simulation.start_simulation(
+#     client_fn=client_fn,
+#     num_clients=len(dfs),
+#     config=fl.server.ServerConfig(num_rounds=5),
+#     strategy=fedavg,
+#     client_resources=client_resources,
+# )
+
 fl.simulation.start_simulation(
-    client_fn=client_fn,
+    client_fn=client_fn_fedprox,
     num_clients=len(dfs),
     config=fl.server.ServerConfig(num_rounds=5),
-    strategy=fedavg,
+    strategy=fedprox,
     client_resources=client_resources,
 )
