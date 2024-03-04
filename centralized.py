@@ -24,7 +24,7 @@ from monai.transforms import (
 from scipy.stats import beta
 import pandas as pd
 
-from utils import dwood
+from utils import dwood, save_csv_prediction, generate_project_name, get_pt_file_path
 
 warnings.filterwarnings("ignore")
 
@@ -71,6 +71,7 @@ def check_improvement(val_loss, best_loss, net, model_save_path, epoch, num_bad_
 def train(net, trainloader, valloader, epochs, model_save_path, losses_save_path, training_round=0, patience=5):
   criterion = nn.L1Loss()
   optimizer = torch.optim.Adam(net.parameters(), lr=1e-4)
+  #Requires the epochs to be higher than the patience for this to work
   scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=patience)
   best_loss = 1e9
   num_bad_epochs = 0
@@ -426,15 +427,29 @@ def run_model(project_name, epochs=10):
     os.makedirs(save_dir)
   # Write the losses to a file in save_dir
   with open(save_dir + 'centralized_losses.txt', 'a') as f:
-    f.write(f"{val_losses}\n")
+    f.write(f"1,{val_losses}\n")
 
   return save_path
 
+def test_model(project_name, test_loader, state_path=None):
+  net = load_model(state_path).to(DEVICE)
+  test_loss, corr, true_ages, pred_ages, ids_sub, mae = validate(net, test_loader)
+  save_dir = './utils/tests/' + project_name + "/"
+  #Create the directory if it does not exist
+  if not os.path.exists(save_dir):
+    os.makedirs(save_dir)
+  save_csv_prediction(save_dir, project_name, true_ages, pred_ages, ids_sub)
 
 
 
 
 if __name__ == '__main__':
+  test_df = pd.read_csv('patients_dataset_6326_test.csv')
+  test_loader = get_test_loader(test_df, batch_size=4, dataset_scale=1)
+  project_name = generate_project_name('FedProx', 'DWood', 'Dataset', 2)
+  model_path = get_pt_file_path(project_name)
+
+  test_model(project_name, test_loader, state_path=model_path)
   # df = pd.read_csv('patients_dataset_6326_train.csv')
   # split_save_datasets('patients_dataset_6326.csv')
   # train_df = pd.read_csv('patients_dataset_6326_train.csv')
@@ -456,7 +471,7 @@ if __name__ == '__main__':
   #   print(df.head())
 
   # downsize_data('patients_dataset_6326_test.csv', percentage=5)
-  run_model('centralized_DWood_seed_31', epochs=10)
+  # run_model('centralized_DWood_seed_31', epochs=10)
 
 
 
