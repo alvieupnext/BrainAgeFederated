@@ -8,6 +8,10 @@ default_location = './utils/models/'
 save_dir = generate_save_dir(project_name)
 #THIS IS THE RIGHT ONE
 dwood = './utils/models/DWood/T1/'
+andrei = './utils/models/AndSilva/'
+
+#Plot folder
+plot_folder = './utils/plots/'
 
 
 def save_csv_prediction(outdir, project_name, true_ages, pred_ages, ids_sub):
@@ -29,6 +33,13 @@ def get_pt_file_path(project_name, model_path=default_location):
   pt_files.sort(key=lambda x: os.path.getmtime(path + '/' + x))
   #Get the path of the latest one
   return path + '/' + pt_files[-1]
+
+def load_andrei_model_paths(prefix='rw', model_path=andrei):
+  #From the model path, get all the folders that start with the prefix
+  folders = [f for f in os.listdir(model_path) if f.startswith(prefix)]
+  #From each folder, get the path to the latest pt file
+  return [get_pt_file_path(f, model_path) for f in folders]
+
 
 def generate_project_name(strategy, mode, data_slice=None, seed=None):
   #Initial folder name
