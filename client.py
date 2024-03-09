@@ -90,6 +90,7 @@ class FlowerClient(fl.client.NumPyClient):
     def fit(self, parameters, config):
       # Read values from config
         server_round = config["server_round"]
+        patience = config["patience"]
 
         print(f"[Client {self.cid}, friendly name {self.name}, round {server_round}] fit, config: {config}")
         friendly_name = str(self.name) or str(self.cid)
@@ -112,7 +113,7 @@ class FlowerClient(fl.client.NumPyClient):
       # #Make a copy of the global parameters
       #   global_params = [param.clone().cpu().detach() for param in self.net.parameters()]
       #Get the save path and is new best from train
-        is_new_best, save_path = self.train(config, model_save_path, losses_save_path, criterion, optimizer, scheduler, parameters)
+        is_new_best, save_path = self.train(config, model_save_path, losses_save_path, criterion, optimizer, scheduler, parameters, patience=patience)
       #If the model is not the new best, reload the model from the last best
         if not is_new_best:
             print("Loading the last best model")

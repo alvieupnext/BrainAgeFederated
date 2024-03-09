@@ -77,7 +77,7 @@ def fit_config(server_round: int):
   }
   return config
 
-def generate_fit_config(epochs: int):
+def generate_fit_config(epochs: int, patience:int):
   def fit_config(server_round: int):
     """Return training configuration dict for each round.
 
@@ -88,6 +88,7 @@ def generate_fit_config(epochs: int):
       "server_round": server_round,  # The current round of federated learning
       #During the first few rounds, run for full epochs, after round 2, half epochs
       "local_epochs": epochs if server_round < 2 else epochs // 2,
+      "patience": patience
     }
     return config
   return fit_config
@@ -119,14 +120,14 @@ if DEVICE.type == "cuda":
 #   return FedProxClient(net, project_name, trainloader, valloader, cid, name)
 
 # A function that returns a strategy and client_fn based on the strategy and save_dir
-def get_config(strategy, save_dir, net, parameters, epochs):
+def get_config(strategy, save_dir, net, parameters, epochs, patience):
   client_fn = gen_client_fn(project_name, strategy, save_dir)
   if strategy == 'FedAvg':
     return SaveFedAvg(
       fraction_fit=1.0,  # Sample 100% of available clients for training
       fraction_evaluate=0.5,  # Sample 50% of available clients for evaluation
       evaluate_fn=get_evaluate_fn(net, save_dir),
-      on_fit_config_fn=generate_fit_config(epochs),
+      on_fit_config_fn=generate_fit_config(epochs, patience),
       initial_parameters=parameters,
       save_dir=save_dir,
     ), client_fn
@@ -135,7 +136,7 @@ def get_config(strategy, save_dir, net, parameters, epochs):
       fraction_fit=1.0,  # Sample 100% of available clients for training
       fraction_evaluate=0.5,  # Sample 50% of available clients for evaluation
       evaluate_fn=get_evaluate_fn(net, save_dir),
-      on_fit_config_fn=generate_fit_config(epochs),
+      on_fit_config_fn=generate_fit_config(epochs,patience),
       initial_parameters=parameters,
       proximal_mu=1.0,
       save_dir=save_dir,
@@ -152,8 +153,10 @@ if __name__ == "__main__":
   #FedAvg is default
   parser.set_defaults(strategy='FedAvg')
   parser.add_argument('--epochs', type=int, required=False)
-  parser.set_defaults(epochs=5)
+  parser.set_defaults(epochs=20)
   parser.add_argument('--alias', type=str, required=False)
+  parser.add_argument('--patience', type=int, required=False)
+  parser.set_defaults(patience=4)
   args = parser.parse_args()
   #For the mode, if no seed provided, mode is RW
   if args.seed is None:
@@ -182,7 +185,7 @@ if __name__ == "__main__":
   parameters = fl.common.ndarrays_to_parameters(weights)
 
   #get the client_fn and strategy from the arguments
-  strategy, client_fn = get_config(args.strategy, save_dir, net, parameters, args.epochs)
+  strategy, client_fn = get_config(args.strategy, save_dir, net, parameters, args.epochs, args.patience)
 
   fl.simulation.start_simulation(
     client_fn=client_fn,
