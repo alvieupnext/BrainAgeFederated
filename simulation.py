@@ -180,7 +180,7 @@ if __name__ == "__main__":
   parameters = fl.common.ndarrays_to_parameters(weights)
 
   #get the client_fn and strategy from the arguments
-  strategy, client_fn = get_config(args.strategy, save_dir, net, parameters)
+  strategy, client_fn = get_config(args.strategy, save_dir, net, parameters, args.epochs)
 
   fl.simulation.start_simulation(
     client_fn=client_fn,
