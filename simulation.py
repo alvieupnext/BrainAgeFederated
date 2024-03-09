@@ -153,6 +153,7 @@ if __name__ == "__main__":
   parser.set_defaults(strategy='FedAvg')
   parser.add_argument('--epochs', type=int, required=False)
   parser.set_defaults(epochs=5)
+  parser.add_argument('--alias', type=str, required=False)
   args = parser.parse_args()
   #For the mode, if no seed provided, mode is RW
   if args.seed is None:
@@ -160,7 +161,8 @@ if __name__ == "__main__":
   else:
     mode = 'DWood'
   seed = f'_seed_{args.seed}' if args.seed is not None else ''
-  project_name = f'{args.strategy}_{mode}_Dataset' + seed
+  alias = f'_{args.alias}' if args.alias is not None else ''
+  project_name = f'{args.strategy}_{mode}_Dataset' + seed + alias
   #Print the project name
   print(f'Now operating under project name {project_name}...')
   save_dir = './utils/models/' + project_name + "/"
