@@ -43,6 +43,7 @@ class FlowerClient(fl.client.NumPyClient):
     def set_parameters(self, parameters):
         set_parameters(self.net, parameters)
 
+      #Improvement: only keep the latest model that saw improvement on the validation set
     def train(self, config, model_save_path, losses_save_path, criterion, optimizer, scheduler, parameters, patience=5):
         best_loss = 1e9
         num_bad_epochs = 0
@@ -55,7 +56,7 @@ class FlowerClient(fl.client.NumPyClient):
         for epoch in range(epochs):
           if num_bad_epochs >= patience:
             print(f"Model reached patience: {patience}")
-            break
+            # break
           train_loss = self.train_epoch(criterion, optimizer)
           val_loss, corr, true_ages, pred_ages, ids_sub, mae = validate(self.net, self.valloader)
           update_loss_df(losses_save_path, server_round, epoch, train_loss, val_loss)
@@ -110,7 +111,12 @@ class FlowerClient(fl.client.NumPyClient):
         scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5)
       # #Make a copy of the global parameters
       #   global_params = [param.clone().cpu().detach() for param in self.net.parameters()]
-        self.train(config, model_save_path, losses_save_path, criterion, optimizer, scheduler, parameters)
+      #Get the save path and is new best from train
+        is_new_best, save_path = self.train(config, model_save_path, losses_save_path, criterion, optimizer, scheduler, parameters)
+      #If the model is not the new best, reload the model from the last best
+        if not is_new_best:
+            print("Loading the last best model")
+            self.net.load_state_dict(torch.load(save_path))
         return self.get_parameters({}), len(self.trainloader), {}
 
     def evaluate(self, parameters, config):
@@ -140,7 +146,7 @@ class FedProxClient(FlowerClient):
     for epoch in range(epochs):
       if num_bad_epochs >= patience:
         print(f"Model reached patience: {patience}")
-        break
+        # break
       train_loss = self.train_epoch_proximal(criterion, optimizer, proximal_mu, global_params)
       val_loss, corr, true_ages, pred_ages, ids_sub, mae = validate(self.net, self.valloader)
       update_loss_df(losses_save_path, server_round, epoch, train_loss, val_loss)

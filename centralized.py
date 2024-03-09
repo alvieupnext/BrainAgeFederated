@@ -24,7 +24,7 @@ from monai.transforms import (
 from scipy.stats import beta
 import pandas as pd
 
-from utils import dwood, save_csv_prediction, generate_project_name, get_pt_file_path
+from utils import dwood, save_csv_prediction, generate_project_name, get_pt_file_path, load_andrei_model_paths
 
 warnings.filterwarnings("ignore")
 
@@ -80,7 +80,7 @@ def train(net, trainloader, valloader, epochs, model_save_path, losses_save_path
   for epoch in range(epochs):
     if num_bad_epochs >= patience:
       print(f"Model reached patience: {patience}")
-      break
+      # break
     train_loss = train_epoch(net, trainloader, criterion, optimizer)
     val_loss, corr, true_ages, pred_ages, ids_sub, mae = validate(net, valloader)
     update_loss_df(losses_save_path, training_round, epoch, train_loss, val_loss)
@@ -413,14 +413,13 @@ def run_model(project_name, epochs=10):
   if not os.path.exists(losses_save_path):
     with open(losses_save_path, 'w') as f:
       f.write('server_round,epoch,train_loss,val_loss,time\n')
-  dwood_seed_2 = dwood + 'seed_31.pt'
+  dwood_seed_2 = dwood + 'seed_2.pt'
   net = load_model(dwood_seed_2).to(DEVICE)
   _, save_path = train(net, trainloader, valloader, epochs, model_save_path, losses_save_path)
   #Load test data
   testdf = pd.read_csv('patients_dataset_6326_test.csv')
   testloader = get_test_loader(testdf, batch_size=4)
   #Validate the model using the test data
-  validate(net, testloader)
   val_losses, _, _, _, _, val_mae = validate(net, testloader)
   # If the repository does not exist, create it
   if not os.path.exists(save_dir):
