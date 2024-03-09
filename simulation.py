@@ -77,6 +77,21 @@ def fit_config(server_round: int):
   }
   return config
 
+def generate_fit_config(epochs: int):
+  def fit_config(server_round: int):
+    """Return training configuration dict for each round.
+
+    Perform two rounds of training with one local epoch, increase to two local
+    epochs afterwards.
+    """
+    config = {
+      "server_round": server_round,  # The current round of federated learning
+      #During the first few rounds, run for full epochs, after round 2, half epochs
+      "local_epochs": epochs if server_round < 2 else epochs // 2,
+    }
+    return config
+  return fit_config
+
 # Specify the resources each of your clients need. By default, each
 # client will be allocated 1x CPU and 0x GPUs
 client_resources = {"num_cpus": 1, "num_gpus": 0.0}
@@ -104,14 +119,14 @@ if DEVICE.type == "cuda":
 #   return FedProxClient(net, project_name, trainloader, valloader, cid, name)
 
 # A function that returns a strategy and client_fn based on the strategy and save_dir
-def get_config(strategy, save_dir, net, parameters):
+def get_config(strategy, save_dir, net, parameters, epochs):
   client_fn = gen_client_fn(project_name, strategy, save_dir)
   if strategy == 'FedAvg':
     return SaveFedAvg(
       fraction_fit=1.0,  # Sample 100% of available clients for training
       fraction_evaluate=0.5,  # Sample 50% of available clients for evaluation
       evaluate_fn=get_evaluate_fn(net, save_dir),
-      on_fit_config_fn=fit_config,
+      on_fit_config_fn=generate_fit_config(epochs),
       initial_parameters=parameters,
       save_dir=save_dir,
     ), client_fn
@@ -120,56 +135,11 @@ def get_config(strategy, save_dir, net, parameters):
       fraction_fit=1.0,  # Sample 100% of available clients for training
       fraction_evaluate=0.5,  # Sample 50% of available clients for evaluation
       evaluate_fn=get_evaluate_fn(net, save_dir),
-      on_fit_config_fn=fit_config,
+      on_fit_config_fn=generate_fit_config(epochs),
       initial_parameters=parameters,
       proximal_mu=1.0,
       save_dir=save_dir,
     ), client_fn
-# Create FedAvg strategy
-# strategy = fl.server.strategy.FedAvg(
-#     fraction_fit=1.0,  # Sample 100% of available clients for training
-#     fraction_evaluate=0.5,  # Sample 50% of available clients for evaluation
-#     evaluate_fn=get_evaluate_fn(net),
-#     on_fit_config_fn=fit_config,  # Pass the fit_config function
-#     initial_parameters=parameters,
-#     # min_fit_clients=10,  # Never sample less than 10 clients for training
-#     # min_evaluate_clients=2,  # Never sample less than 5 clients for evaluation
-#     # min_available_clients=10,  # Wait until all 10 clients are available
-# )
-#
-# fedavg = SaveFedAvg(
-#   fraction_fit=1.0,  # Sample 100% of available clients for training
-#     fraction_evaluate=0.5,  # Sample 50% of available clients for evaluation
-#     evaluate_fn=get_evaluate_fn(net),
-#     on_fit_config_fn=fit_config,
-#   initial_parameters=parameters,
-# )
-#
-# fedprox = SaveFedProx(
-#   fraction_fit=1.0,  # Sample 100% of available clients for training
-#     fraction_evaluate=0.5,  # Sample 50% of available clients for evaluation
-#     evaluate_fn=get_evaluate_fn(net),
-#     on_fit_config_fn=fit_config,
-#   initial_parameters=parameters,
-#   proximal_mu=1.0,
-# )
-
-# # Start simulation
-# fl.simulation.start_simulation(
-#     client_fn=client_fn,
-#     num_clients=len(dfs),
-#     config=fl.server.ServerConfig(num_rounds=5),
-#     strategy=fedavg,
-#     client_resources=client_resources,
-# )
-
-# fl.simulation.start_simulation(
-#     client_fn=client_fn_fedprox,
-#     num_clients=len(dfs),
-#     config=fl.server.ServerConfig(num_rounds=5),
-#     strategy=fedprox,
-#     client_resources=client_resources,
-# )
 
 #Generate a main function to run the simulation
 if __name__ == "__main__":
@@ -181,6 +151,8 @@ if __name__ == "__main__":
   parser.add_argument('--strategy', type=str, required=False)
   #FedAvg is default
   parser.set_defaults(strategy='FedAvg')
+  parser.add_argument('--epochs', type=int, required=False)
+  parser.set_defaults(epochs=5)
   args = parser.parse_args()
   #For the mode, if no seed provided, mode is RW
   if args.seed is None:
