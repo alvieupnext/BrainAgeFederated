@@ -283,7 +283,7 @@ def get_test_loader(df, batch_size, dataset_scale=1.0):
   return test_loader
 
 #Function for splitting datasets
-def group_datasets(df, mode='dataset', turbulence=0.0):
+def group_datasets(df, mode='dataset', turbulence=0.0, distributions={}):
   #If dataset mode, split the dataframe by the dataset column
   if mode == 'dataset':
     # Split the dataset by the dataset column
@@ -291,6 +291,11 @@ def group_datasets(df, mode='dataset', turbulence=0.0):
     # Dont forget to reset index
     return {name: group.reset_index(drop=True, inplace=False) for name, group in groups}
   # Number mode, split uniformly in n dataframes
+  elif mode == 'distribution':
+    num_clients = len(distributions)
+    patients_per_client = len(df) // num_clients
+    pass
+    # return {name: dataset_from_distribution(df, distribution, patients_per_client) for name, distribution in distributions.items()}
   else:
     try:
       n = int(mode)
