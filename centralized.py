@@ -24,6 +24,7 @@ from monai.transforms import (
 from scipy.stats import beta
 import pandas as pd
 
+from distributions import dataset_from_distribution
 from utils import dwood, save_csv_prediction, generate_project_name, get_pt_file_path, load_andrei_model_paths
 
 warnings.filterwarnings("ignore")
@@ -294,8 +295,7 @@ def group_datasets(df, mode='dataset', turbulence=0.0, distributions={}):
   elif mode == 'distribution':
     num_clients = len(distributions)
     patients_per_client = len(df) // num_clients
-    pass
-    # return {name: dataset_from_distribution(df, distribution, patients_per_client) for name, distribution in distributions.items()}
+    return {name: dataset_from_distribution(df, distribution, patients_per_client) for name, distribution in distributions.items()}
   else:
     try:
       n = int(mode)
