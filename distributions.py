@@ -58,6 +58,16 @@ class GaussianMixture(Distribution):
         # Convert the list of arrays into a single 2D array
         return samples
 
+class OriginalDistribution(Distribution):
+    def __init__(self, df):
+        self.df = df
+
+    def sample(self, n):
+        return self.df.sample(n)['Age'].values
+
+    def sample_with_limits(self, n, min_val, max_val):
+        return self.df[(self.df['Age'] >= min_val) & (self.df['Age'] <= max_val)].sample(n)['Age'].values
+
 #Flatten a single element nested in one of multiple nestings
 # def flatten_single_element(nested):
 #     if isinstance(nested, (list, tuple)):
@@ -88,6 +98,9 @@ def get_distribution(name, config):
         cov = config['cov']
         #Create the Gaussian distribution
         return Gaussian(mean, cov)
+    else:
+        df = config['df']
+        return OriginalDistribution(df)
 
 def gaussian_config(index, mean, cov):
     return f'Gaussian_{mean}_{index}', {'mean': mean, 'cov': cov}
@@ -96,12 +109,16 @@ def gaussian_mixture_config(n_components, random_state, df):
     data = df['Age'].values.reshape(-1, 1)
     return 'GaussianMixture', {'n_components': n_components, 'random_state': random_state, 'data': data}
 
+def original_distribution_config(df):
+    return 'OriginalDistribution', {'df': df}
+
 df = pd.read_csv('patients_dataset_9573.csv')
 
 normal_distribution1 = gaussian_config(1, 22.447, np.sqrt(8.41449796))
 normal_distribution2 = gaussian_config(2, 22.447, np.sqrt(8.41449796))
 normal_distribution3 = gaussian_config(3, 56.47287982, np.sqrt(260.14362206))
 mixture_distribution = gaussian_mixture_config(2, 10, df)
+original_distribution = original_distribution_config(df)
 
 #Given a dataframe and an age, retrieve all patients with that age
 def retrieve_patients_with_closest_age(df, age):
@@ -204,16 +221,28 @@ df = df.drop(columns=['dataset', 'dataset_name'])
 #Split the dataframe into three dataframes, get the length of each dataframe
 df_length = len(df) // 3
 
-G1 = dataset_from_distribution(df, get_distribution(*normal_distribution1), df_length)
-G2 = dataset_from_distribution(df, get_distribution(*normal_distribution2), df_length)
-G3 = dataset_from_distribution(df, get_distribution(*normal_distribution3), df_length)
-G4 = dataset_from_distribution(df, get_distribution(*mixture_distribution), df_length)
+gaussian_young = get_distribution(*normal_distribution1)
+gaussian_old = get_distribution(*normal_distribution3)
+mixture = get_distribution(*mixture_distribution)
+original = get_distribution(*original_distribution)
 
-#For all datasets, plot the age distribution
-plot_age_distribution(age_distribution(G1), 'G1')
-plot_age_distribution(age_distribution(G2), 'G2')
-plot_age_distribution(age_distribution(G3), 'G3')
-plot_age_distribution(age_distribution(G4), 'G4')
+#Create a dictionary with the datasets
+distribution_profiles = {'Original': {1: original, 2: original, 3: original},
+                      'Gaussian': {'Young1': gaussian_young, 'Young2': gaussian_young, 'Old': gaussian_old},
+                      'Mixture': {1: mixture, 2: mixture, 3: mixture}}
+
+#Create a general dictionary for the distributions
+
+# G1 = dataset_from_distribution(df, get_distribution(*normal_distribution1), df_length)
+# G2 = dataset_from_distribution(df, get_distribution(*normal_distribution2), df_length)
+# G3 = dataset_from_distribution(df, get_distribution(*normal_distribution3), df_length)
+# G4 = dataset_from_distribution(df, get_distribution(*mixture_distribution), df_length)
+#
+# #For all datasets, plot the age distribution
+# plot_age_distribution(age_distribution(G1), 'G1')
+# plot_age_distribution(age_distribution(G2), 'G2')
+# plot_age_distribution(age_distribution(G3), 'G3')
+# plot_age_distribution(age_distribution(G4), 'G4')
 
 
 # print(retrieve_patients_with_closest_age(df, 22.70).head())
