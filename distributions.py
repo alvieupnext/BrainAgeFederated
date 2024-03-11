@@ -21,7 +21,7 @@ class Gaussian(Distribution):
     def __init__(self, mean, cov):
         self.mean = mean
         self.cov = cov
-        print(f"Mean: {self.mean}, Covariance: {self.cov}")
+        # print(f"Mean: {self.mean}, Covariance: {self.cov}")
 
     def sample_with_limits(self, n, min_val, max_val):
         samples = []
