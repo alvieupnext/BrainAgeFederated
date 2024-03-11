@@ -12,32 +12,34 @@ import os
 import numpy as np
 import torch
 
+from distributions import distribution_profiles
 from strategy import SaveFedAvg, SaveFedProx
 from utils import dwood
 
-# Load patients_dataset_6326_train.csv
-df = pd.read_csv('patients_dataset_6326_train.csv')
-#Group the dataframe in different dataframes by dataset attribute
-dfs = group_datasets(df, mode='dataset')
-# #Remove PDD from the dictionary
-# dfs.pop('PDD')
-dataloaders = {name: get_train_valid_loader(df, batch_size=3, random_seed=10, dataset_scale=1) for name, df in dfs.items()}
-names = list(dataloaders.keys())
-print(names)
-print(dataloaders)
-# #Print the dataframe from Other and from PDD
-# print(dfs.get('PDD'))
-print("Loaded test data")
-testdf = pd.read_csv('patients_dataset_6326_test.csv')
-testloader = get_test_loader(testdf, batch_size=4, dataset_scale=1)
+# # Load patients_dataset_6326_train.csv
+# df = pd.read_csv('patients_dataset_6326_train.csv')
+# #Group the dataframe in different dataframes by dataset attribute
+# dfs = group_datasets(df, mode='dataset')
+# # #Remove PDD from the dictionary
+# # dfs.pop('PDD')
+# dataloaders = {name: get_train_valid_loader(df, batch_size=3, random_seed=10, dataset_scale=1) for name, df in dfs.items()}
+# names = list(dataloaders.keys())
+# print(names)
+# print(dataloaders)
+# # #Print the dataframe from Other and from PDD
+# # print(dfs.get('PDD'))
+# print("Loaded test data")
+# testdf = pd.read_csv('patients_dataset_6326_test.csv')
+# testloader = get_test_loader(testdf, batch_size=4, dataset_scale=1)
 
 #Generate a client function which takes the project name and returns a function that creates a FlowerClient
-def gen_client_fn(project_name, strategy, save_dir):
+def gen_client_fn(project_name, strategy, save_dir, dataloaders):
   def client_fn(cid: str) -> FlowerClient:
     """Create a Flower client representing a single organization."""
 
     # Load model
     net = load_model().to(DEVICE)
+    names = list(dataloaders.keys())
 
     # Dataloaders is a dict with name as key and a tuple with trainloader and valloader as value
     name = names[int(cid)]
@@ -52,7 +54,7 @@ def gen_client_fn(project_name, strategy, save_dir):
   return client_fn
 
 #Evaluation server side using test csv
-def get_evaluate_fn(model, save_dir):
+def get_evaluate_fn(model, save_dir, testloader):
   def evaluate(server_round: int, parameters: NDArrays, config: Dict[str, Scalar]) -> Optional[Tuple[float, Dict[str, Scalar]]]:
     print("Evaluating round", server_round)
     set_parameters(model, parameters)
@@ -120,13 +122,13 @@ if DEVICE.type == "cuda":
 #   return FedProxClient(net, project_name, trainloader, valloader, cid, name)
 
 # A function that returns a strategy and client_fn based on the strategy and save_dir
-def get_config(strategy, save_dir, net, parameters, epochs, patience):
-  client_fn = gen_client_fn(project_name, strategy, save_dir)
+def get_config(strategy, save_dir, net, parameters, epochs, patience, dataloaders, testloader):
+  client_fn = gen_client_fn(project_name, strategy, save_dir, dataloaders)
   if strategy == 'FedAvg':
     return SaveFedAvg(
       fraction_fit=1.0,  # Sample 100% of available clients for training
       fraction_evaluate=0.5,  # Sample 50% of available clients for evaluation
-      evaluate_fn=get_evaluate_fn(net, save_dir),
+      evaluate_fn=get_evaluate_fn(net, save_dir, testloader),
       on_fit_config_fn=generate_fit_config(epochs, patience),
       initial_parameters=parameters,
       save_dir=save_dir,
@@ -135,7 +137,7 @@ def get_config(strategy, save_dir, net, parameters, epochs, patience):
     return SaveFedProx(
       fraction_fit=1.0,  # Sample 100% of available clients for training
       fraction_evaluate=0.5,  # Sample 50% of available clients for evaluation
-      evaluate_fn=get_evaluate_fn(net, save_dir),
+      evaluate_fn=get_evaluate_fn(net, save_dir, testloader),
       on_fit_config_fn=generate_fit_config(epochs,patience),
       initial_parameters=parameters,
       proximal_mu=1.0,
@@ -157,6 +159,10 @@ if __name__ == "__main__":
   parser.add_argument('--alias', type=str, required=False)
   parser.add_argument('--patience', type=int, required=False)
   parser.set_defaults(patience=4)
+  parser.add_argument('--split', type=str, required=False)
+  parser.set_defaults(split='dataset')
+  parser.add_argument('--distribution', type=str, required=False)
+  parser.set_defaults(distribution='Original')
   args = parser.parse_args()
   #For the mode, if no seed provided, mode is RW
   if args.seed is None:
@@ -165,7 +171,10 @@ if __name__ == "__main__":
     mode = 'DWood'
   seed = f'_seed_{args.seed}' if args.seed is not None else ''
   alias = f'_{args.alias}' if args.alias is not None else ''
-  project_name = f'{args.strategy}_{mode}_Dataset' + seed + alias
+  split = args.split.capitalize()
+  if args.split == 'distribution':
+    split += f'_{args.distribution}'
+  project_name = f'{args.strategy}_{mode}_{split}' + seed + alias
   #Print the project name
   print(f'Now operating under project name {project_name}...')
   save_dir = './utils/models/' + project_name + "/"
@@ -184,8 +193,19 @@ if __name__ == "__main__":
 
   parameters = fl.common.ndarrays_to_parameters(weights)
 
+  # # Load patients_dataset_6326_train.csv
+  df = pd.read_csv('patients_dataset_9573_train.csv')
+  # If split is distribution, get the right distributions
+  distributions = distribution_profiles.get(args.distribution)
+  #Group the dataframe in different dataframes
+  dfs = group_datasets(df, mode=args.split, distributions=distributions)
+  # # #Remove PDD from the dictionary
+  dataloaders = {name: get_train_valid_loader(df, batch_size=3, random_seed=10, dataset_scale=1) for name, df in dfs.items()}
+  testdf = pd.read_csv('patients_dataset_6326_test.csv')
+  testloader = get_test_loader(testdf, batch_size=4, dataset_scale=1)
+
   #get the client_fn and strategy from the arguments
-  strategy, client_fn = get_config(args.strategy, save_dir, net, parameters, args.epochs, args.patience)
+  strategy, client_fn = get_config(args.strategy, save_dir, net, parameters, args.epochs, args.patience, dataloaders, testloader)
 
   fl.simulation.start_simulation(
     client_fn=client_fn,
