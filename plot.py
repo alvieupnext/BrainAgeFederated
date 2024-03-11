@@ -191,3 +191,48 @@ if not os.path.exists(plot_folder):
 # Plot the losses
 # plot_losses(project_losses)
 plot_client_losses(client_losses)
+
+# Read patients_dataset_9573_noage.csv
+dataset = pd.read_csv('patients_dataset_9573.csv')
+
+# Plot the Age distribution, make it a function
+# Add spacing between the bins
+def plot_age_distribution(data):
+    plt.figure(figsize=(10, 6))  # Increase figure size
+    sns.set(style="whitegrid")  # Use seaborn style for prettier plots
+    data['Age'].plot(kind='hist', bins=20, title='Age Distribution', color='skyblue', edgecolor='black')
+    plt.xlabel('Age')
+    plt.ylabel('Frequency')
+    plt.grid(True)  # Add grid lines
+    plt.tight_layout()  # Adjust layout to not cut off labels
+    plt.show()
+
+# Plot the dataset_name distribution, make it a function
+# Only give a top 20 of the dataset_name, all other datasets should be classified as 'Other'
+def plot_dataset_distribution(data):
+    value_counts = data['dataset_name'].value_counts()
+    top_20 = value_counts.nlargest(20)
+    other_count = value_counts[20:].sum()
+    top_20['Other'] = other_count
+
+    plt.figure(figsize=(12, 8))  # Increase figure size
+    sns.set(style="whitegrid")  # Use seaborn style
+    top_20.plot(kind='bar', title='Top 20 Dataset Distribution', color='cadetblue', edgecolor='black')
+    plt.ylabel('Amount of Patients')
+    plt.xlabel('Dataset Name')
+    plt.xticks(rotation=45, ha='right')  # Rotate and align labels for readability
+    plt.grid(axis='y')  # Add horizontal grid lines
+    plt.tight_layout()  # Adjust layout
+    plt.show()
+
+
+def plot_parent_dataset_distribution(data):
+    plt.figure(figsize=(10, 6))  # Increase figure size
+    sns.set(style="whitegrid")  # Use seaborn style
+    data['dataset'].value_counts().plot(kind='bar', title='Parent Dataset Distribution', color='lightcoral', edgecolor='black')
+    plt.ylabel('Amount of Patients')
+    plt.xlabel('Dataset')
+    plt.xticks(rotation=45, ha='right')  # Rotate and align labels
+    plt.grid(axis='y')  # Add horizontal grid lines
+    plt.tight_layout()  # Adjust layout
+    plt.show()
