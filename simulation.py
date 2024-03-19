@@ -67,17 +67,17 @@ def get_evaluate_fn(model, save_dir, testloader):
 
   return evaluate
 
-def fit_config(server_round: int):
-  """Return training configuration dict for each round.
-
-  Perform two rounds of training with one local epoch, increase to two local
-  epochs afterwards.
-  """
-  config = {
-    "server_round": server_round,  # The current round of federated learning
-    "local_epochs": 1 if server_round < 2 else 2,  #
-  }
-  return config
+# def fit_config(server_round: int):
+#   """Return training configuration dict for each round.
+#
+#   Perform two rounds of training with one local epoch, increase to two local
+#   epochs afterwards.
+#   """
+#   config = {
+#     "server_round": server_round,  # The current round of federated learning
+#     "local_epochs": 1 if server_round < 2 else 2,  #
+#   }
+#   return config
 
 def generate_fit_config(epochs: int, patience:int):
   def fit_config(server_round: int):
@@ -89,22 +89,27 @@ def generate_fit_config(epochs: int, patience:int):
     config = {
       "server_round": server_round,  # The current round of federated learning
       #During the first few rounds, run for full epochs, after round 2, half epochs
-      "local_epochs": epochs if server_round < 2 else epochs // 2,
+      #Run as many epochs as server rounds
+      "local_epochs": server_round,
       "patience": patience
     }
     return config
   return fit_config
 
+def generate_client_resources(num_cpus: int, num_gpus: float, clients: int):
+  return {"num_cpus": num_cpus // clients, "num_gpus": num_gpus / clients}
+
 # Specify the resources each of your clients need. By default, each
 # client will be allocated 1x CPU and 0x GPUs
-client_resources = {"num_cpus": 1, "num_gpus": 0.0}
-print(DEVICE.type)
-if DEVICE.type == "cuda":
-    # here we are asigning an entire GPU for each client.
-    client_resources = {"num_cpus": 1, "num_gpus": 1.0}
-    # Refer to our documentation for more details about Flower Simulations
-    # and how to setup these `client_resources`.
-# dwood_seed_2 = dwood + 'seed_67.pt'
+# client_resources = {"num_cpus": 1, "num_gpus": 0.0}
+# print(DEVICE.type)
+# if DEVICE.type == "cuda":
+#    #Cray-Z contains 24 CPU and 1 GPU
+#     # here we are asigning an entire GPU for each client.
+#     client_resources = {"num_cpus": 1, "num_gpus": 1.0}
+#     # Refer to our documentation for more details about Flower Simulations
+#     # and how to setup these `client_resources`.
+# # dwood_seed_2 = dwood + 'seed_67.pt'
 
 # #Client_fn for fedprox
 # def client_fn_fedprox(cid: str) -> FlowerClient:
@@ -163,6 +168,8 @@ if __name__ == "__main__":
   parser.set_defaults(split='dataset')
   parser.add_argument('--distribution', type=str, required=False)
   parser.set_defaults(distribution='Original')
+  parser.add_argument('--server_rounds', type=int, required=False)
+  parser.set_defaults(server_rounds=5)
   args = parser.parse_args()
   #For the mode, if no seed provided, mode is RW
   if args.seed is None:
@@ -179,10 +186,6 @@ if __name__ == "__main__":
   print(f'Now operating under project name {project_name}...')
   save_dir = './utils/models/' + project_name + "/"
   print(f'Saving models to {save_dir}...')
-  # If the repository does not exist, create it
-  if not os.path.exists(save_dir):
-    print(f"Creating directory {save_dir}...")
-    os.makedirs(save_dir)
 
   #Load the model
   #If a seed is defined, use it
@@ -207,10 +210,18 @@ if __name__ == "__main__":
   #get the client_fn and strategy from the arguments
   strategy, client_fn = get_config(args.strategy, save_dir, net, parameters, args.epochs, args.patience, dataloaders, testloader)
 
+  # If the repository does not exist, create it
+  if not os.path.exists(save_dir):
+    print(f"Creating directory {save_dir}...")
+    os.makedirs(save_dir)
+
+  #Cray-Z contains 24 CPU and 1 GPU
+  client_resources = generate_client_resources(24, 1, len(dfs))
+
   fl.simulation.start_simulation(
     client_fn=client_fn,
     num_clients=len(dfs),
-    config=fl.server.ServerConfig(num_rounds=5),
+    config=fl.server.ServerConfig(num_rounds=args.server_rounds),
     strategy=strategy,
     client_resources=client_resources,
   )
