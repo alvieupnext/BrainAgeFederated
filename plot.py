@@ -61,10 +61,10 @@ def get_decentralized_losses(project_name):
   return clients, training_losses, validation_losses, x_ticks
 
 strategies = ['FedAvg', 'FedProx']
-model = ['RW']
-seeds = [2, 31, 35, 60, 67]
-data = ['Dataset']
-
+model = ['DWood']
+seeds = [2]
+# data = ['Dataset']
+data = ['Distribution_Gaussian', 'Distribution_Original']
 # Keep track of all the project names and the losses
 project_losses = {}
 client_losses = {}
@@ -85,7 +85,7 @@ for m in model:
       if m == 'DWood':
         for seed in seeds:
           seed_name = f'_seed_{seed}'
-          project_names.append(project_name + seed_name)
+          project_names.append(project_name + seed_name + '_ascending_epochs')
       else:
         project_names.append(project_name)
       # Get the losses for the project
@@ -114,7 +114,7 @@ for m in model:
       #   project_losses[project_name] = losses
 
 # Define the plotting function
-def plot_losses(projects_losses):
+def plot_losses(projects_losses, split='Dataset', mode='DWood'):
     # Set the aesthetic style of the plots
     sns.set(style="whitegrid")
 
@@ -134,28 +134,39 @@ def plot_losses(projects_losses):
     for project_name, losses in projects_losses.items():
         rounds = list(range(len(losses)))  # Server rounds
         plt.plot(rounds, losses, label=project_name)
+        # Give a friendly name to the mode RW -> Random Weights
+    if mode == 'RW':
+      verbose_mode = 'Random Weights'
+    else:
+      verbose_mode = mode
 
     # Customize the plot
-    plt.title('Losses Over Server Rounds of Federated Learning', fontsize=16)
+    plt.title(f'Losses Over Server Rounds of Federated Learning ({split}, {verbose_mode})', fontsize=16)
     plt.xlabel('Server Rounds', fontsize=14)
     plt.ylabel('Loss', fontsize=14)
     plt.legend(title='Strategies')
     sns.despine()
     #Save the plot at the plot folders
-    path = os.path.join(plot_folder, 'losses_over_server_rounds.pdf')
+    path = os.path.join(plot_folder, f'losses_over_server_rounds_{split}_{mode}.pdf')
     #Save as plot
-    plt.savefig(path, format='pdf', dpi=300, bbox_inches='tight')
+    # plt.savefig(path, format='pdf', dpi=300, bbox_inches='tight')
 
     # Show the plot
     plt.show()
 
 
-def plot_client_losses(client_losses):
+def plot_client_losses(client_losses, client_number=12, split='Dataset', mode='DWood'):
   # Set the visual theme of the plots with Seaborn
   sns.set(style="whitegrid")
 
+  #Get the amouunt of clients and turn it into a rows and column
+  #The amount of rows varies and the columns are always 4
+  rows = int(np.ceil(client_number / 4))
+  columns = 4
+
+
   # Create a 4x3 grid of subplots with shared x and y axes for uniform scale
-  fig, axes = plt.subplots(3, 4, figsize=(14,14), sharex=True, sharey=True)
+  fig, axes = plt.subplots(rows, columns, figsize=(14,14), sharex=True, sharey=True)
   axes = axes.flatten()  # Flatten the 2D array of axes for easy iteration
 
   # Iterate through each project in the client_losses dictionary
@@ -175,13 +186,18 @@ def plot_client_losses(client_losses):
       # Display the legend to differentiate between training and validation loss
       ax.legend()
 
+  # Give a friendly name to the mode RW -> Random Weights
+  if mode == 'RW':
+    verbose_mode = 'Random Weights'
+  else:
+    verbose_mode = mode
   # Set the main title for the entire figure, positioned above all subplots
-  plt.suptitle('Losses by Client (Random Weights)', fontsize=20)
+  plt.suptitle(f'Losses by Client ({split}, {verbose_mode})', fontsize=20)
   # Adjust the layout to make sure there's no overlap between subplots
   plt.tight_layout()
-  path = os.path.join(plot_folder, 'losses_by_client_RW.pdf')
+  path = os.path.join(plot_folder, f'Losses_by_client_{split}_{mode}.pdf')
   #Save the plot in the utils folder
-  plt.savefig(path, format='pdf', dpi=300, bbox_inches='tight')
+  # plt.savefig(path, format='pdf', dpi=300, bbox_inches='tight')
   # Display the plot
   plt.show()
 
@@ -189,8 +205,8 @@ def plot_client_losses(client_losses):
 if not os.path.exists(plot_folder):
   os.makedirs(plot_folder)
 # Plot the losses
-# plot_losses(project_losses)
-plot_client_losses(client_losses)
+plot_losses(project_losses, split='Distribution', mode='DWood')
+plot_client_losses(client_losses,4, split='Distribution', mode='DWood')
 
 # Read patients_dataset_9573_noage.csv
 dataset = pd.read_csv('patients_dataset_9573.csv')
