@@ -12,6 +12,9 @@ import torch.nn as nn
 import pandas as pd
 import torch
 
+from plot import plot_age_distribution
+
+
 def set_parameters(model, parameters):
     params_dict = zip(model.state_dict().keys(), parameters)
     state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
@@ -38,6 +41,17 @@ class FlowerClient(fl.client.NumPyClient):
       self.name = name
       self.project_name = project_name
       self.save_dir = save_dir
+      #Plot the data distribution of the dataset
+      self.plot_age_distribution()
+
+    def plot_age_distribution(self):
+      friendly_name = str(self.name) or str(self.cid)
+      client_save_dir = self.save_dir + friendly_name + "/"
+      #Create a save dir to a file called age_distribution.pdf
+      if not os.path.exists(client_save_dir):
+          os.makedirs(client_save_dir)
+      plot_save_dir = client_save_dir + "age_distribution.pdf"
+      plot_age_distribution(self.dataset, plot_save_dir)
 
     def get_parameters(self, config):
         print(f"[Client {self.cid}, friendly name {self.name}] get_parameters")
