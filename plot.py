@@ -213,15 +213,19 @@ dataset = pd.read_csv('patients_dataset_9573.csv')
 
 # Plot the Age distribution, make it a function
 # Add spacing between the bins
-def plot_age_distribution(data):
-    plt.figure(figsize=(10, 6))  # Increase figure size
-    sns.set(style="whitegrid")  # Use seaborn style for prettier plots
-    data['Age'].plot(kind='hist', bins=20, title='Age Distribution', color='skyblue', edgecolor='black')
-    plt.xlabel('Age')
-    plt.ylabel('Frequency')
-    plt.grid(True)  # Add grid lines
-    plt.tight_layout()  # Adjust layout to not cut off labels
-    plt.show()
+def plot_age_distribution(data, save_path=None):
+  plt.figure(figsize=(10, 6))  # Increase figure size
+  sns.set(style="whitegrid")  # Use seaborn style for prettier plots
+  data['Age'].plot(kind='hist', bins=20, title='Age Distribution', color='skyblue', edgecolor='black', rwidth=0.8)
+  plt.xlabel('Age')
+  plt.ylabel('Frequency')
+  plt.grid(True)  # Add grid lines
+  plt.tight_layout()  # Adjust layout to not cut off labels
+
+  # Save the figure to a PDF at the specified path, if needed
+  if save_path:
+    plt.savefig(save_path, format='pdf', dpi=300, bbox_inches='tight')
+  plt.show()
 
 # Plot the dataset_name distribution, make it a function
 # Only give a top 20 of the dataset_name, all other datasets should be classified as 'Other'
