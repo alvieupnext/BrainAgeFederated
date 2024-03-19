@@ -33,24 +33,24 @@ from utils import dwood
 # testloader = get_test_loader(testdf, batch_size=4, dataset_scale=1)
 
 #Generate a client function which takes the project name and returns a function that creates a FlowerClient
-def gen_client_fn(project_name, strategy, save_dir, dataloaders):
+def gen_client_fn(project_name, strategy, save_dir, dfs):
   def client_fn(cid: str) -> FlowerClient:
     """Create a Flower client representing a single organization."""
 
     # Load model
     net = load_model().to(DEVICE)
-    names = list(dataloaders.keys())
+    names = list(dfs.keys())
 
     # Dataloaders is a dict with name as key and a tuple with trainloader and valloader as value
     name = names[int(cid)]
-    trainloader, valloader = dataloaders[name]
+    dataset = dfs[name]
 
     if strategy == 'FedAvg':
       # Create a  single Flower client representing a single organization
-      return FlowerClient(net, project_name, save_dir, trainloader, valloader, cid, name)
+      return FlowerClient(net, project_name, save_dir, dataset, cid, name)
     elif strategy == 'FedProx':
       # Create a  single FedProx representing a single organization
-      return FedProxClient(net, project_name, save_dir, trainloader, valloader, cid, name)
+      return FedProxClient(net, project_name, save_dir, dataset, cid, name)
   return client_fn
 
 #Evaluation server side using test csv
@@ -127,8 +127,8 @@ def generate_client_resources(num_cpus: int, num_gpus: float, clients: int):
 #   return FedProxClient(net, project_name, trainloader, valloader, cid, name)
 
 # A function that returns a strategy and client_fn based on the strategy and save_dir
-def get_config(strategy, save_dir, net, parameters, epochs, patience, dataloaders, testloader):
-  client_fn = gen_client_fn(project_name, strategy, save_dir, dataloaders)
+def get_config(strategy, save_dir, net, parameters, epochs, patience, dfs, testloader):
+  client_fn = gen_client_fn(project_name, strategy, save_dir, dfs)
   if strategy == 'FedAvg':
     return SaveFedAvg(
       fraction_fit=1.0,  # Sample 100% of available clients for training
@@ -203,12 +203,12 @@ if __name__ == "__main__":
   #Group the dataframe in different dataframes
   dfs = group_datasets(df, mode=args.split, distributions=distributions)
   # # #Remove PDD from the dictionary
-  dataloaders = {name: get_train_valid_loader(df, batch_size=3, random_seed=10, dataset_scale=1) for name, df in dfs.items()}
+  # dataloaders = {name: get_train_valid_loader(df, batch_size=3, random_seed=10, dataset_scale=1) for name, df in dfs.items()}
   testdf = pd.read_csv('patients_dataset_6326_test.csv')
   testloader = get_test_loader(testdf, batch_size=4, dataset_scale=1)
 
   #get the client_fn and strategy from the arguments
-  strategy, client_fn = get_config(args.strategy, save_dir, net, parameters, args.epochs, args.patience, dataloaders, testloader)
+  strategy, client_fn = get_config(args.strategy, save_dir, net, parameters, args.epochs, args.patience, dfs, testloader)
 
   # If the repository does not exist, create it
   if not os.path.exists(save_dir):

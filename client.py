@@ -27,8 +27,11 @@ def set_parameters(model, parameters):
 
 class FlowerClient(fl.client.NumPyClient):
 
-    def __init__(self, net, project_name, save_dir, trainloader, valloader, cid, name=None):
+    def __init__(self, net, project_name, save_dir, dataset, cid, name=None):
       self.net = net
+      self.dataset = dataset
+      #Split the dataset into train and validation
+      trainloader, valloader = get_train_valid_loader(self.dataset, batch_size=4, random_seed=10, aug='none', kcrossval=None, icross=-1)
       self.trainloader = trainloader
       self.valloader = valloader
       self.cid = cid
