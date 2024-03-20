@@ -259,14 +259,45 @@ def get_train_valid_loader(df, batch_size=4, random_seed=10, aug='none', kcrossv
   print('Composing transformations and structuring loader datasets...')
   train_transforms = get_data_transforms(augmentation=aug)
   valid_transforms = get_data_transforms(augmentation='none')
+  #No cross_validation
+  train_val_ids = []
+  if kcrossval is None:
+    train_ids, valid_ids = split_dataset_ids(df, kcrossval, icross, random_seed=random_seed, dataset_scale=dataset_scale)
+    #Add these to the list
+    train_val_ids.append((train_ids, valid_ids))
+  else:
+    for i in range(kcrossval):
+      train_ids, valid_ids = split_dataset_ids(df, kcrossval, i, random_seed=random_seed, dataset_scale=dataset_scale)
+      train_val_ids.append((train_ids, valid_ids))
 
-  train_ids, valid_ids = split_dataset_ids(df, kcrossval, icross, random_seed=random_seed, dataset_scale=dataset_scale)
+  train_loaders = []
+  valid_loaders = []
+
+  #Initialize the train and valid loaders
+  for train_ids, valid_ids in train_val_ids:
+    train_loader, num_train = get_loader(df, train_ids, train_transforms, batch_size)
+    valid_loader, num_valid = get_loader(df, valid_ids, valid_transforms, batch_size)
+    print(f'Number of training scans: {num_train}, valid scans: {num_valid}')
+    train_loaders.append(train_loader)
+    valid_loaders.append(valid_loader)
+
+
+  return train_loaders, valid_loaders
+
+#Function that creates a train loader, no validation loader
+def get_train_loader(df, batch_size=4, random_seed=10, aug='none', dataset_scale=1.0):
+  print('Composing transformations and structuring train loader dataset...')
+  train_transforms = get_data_transforms(augmentation=aug)
+  # Get all unique IDs and then scale the list according to the dataset_scale parameter
+  all_train_ids = df['ID'].unique().tolist()
+  scaled_size = int(len(all_train_ids) * dataset_scale)
+  np.random.seed(random_seed)  # Ensure reproducibility, you can choose any seed you prefer
+  train_ids = np.random.choice(all_train_ids, scaled_size, replace=False).tolist()
 
   train_loader, num_train = get_loader(df, train_ids, train_transforms, batch_size)
-  valid_loader, num_valid = get_loader(df, valid_ids, valid_transforms, batch_size)
 
-  print(f'Number of training scans: {num_train}, valid scans: {num_valid}')
-  return train_loader, valid_loader
+  print(f'Number of training scans: {num_train}')
+  return train_loader
 
 
 def get_test_loader(df, batch_size, dataset_scale=1.0):
