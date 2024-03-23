@@ -69,12 +69,12 @@ def check_improvement(val_loss, best_loss, net, model_save_path, epoch, num_bad_
   else:
     return False, best_loss, num_bad_epochs + 1
 
-def train(net, trainloader, valloader, epochs, model_save_path, losses_save_path, training_round=0, patience=5):
+def train(net, trainloader, valloader, epochs, model_save_path, losses_save_path, training_round=0, patience=5, best_loss=1e9, current_epoch=0):
   criterion = nn.L1Loss()
   optimizer = torch.optim.Adam(net.parameters(), lr=1e-4)
   #Requires the epochs to be higher than the patience for this to work
   scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=patience)
-  best_loss = 1e9
+
   num_bad_epochs = 0
   is_new_best = False
 
@@ -84,14 +84,14 @@ def train(net, trainloader, valloader, epochs, model_save_path, losses_save_path
       # break
     train_loss = train_epoch(net, trainloader, criterion, optimizer)
     val_loss, corr, true_ages, pred_ages, ids_sub, mae = validate(net, valloader)
-    update_loss_df(losses_save_path, training_round, epoch, train_loss, val_loss)
+    update_loss_df(losses_save_path, training_round, epoch + current_epoch, train_loss, val_loss)
     is_new_best, best_loss, num_bad_epochs = check_improvement(val_loss, best_loss, net, model_save_path, epoch, num_bad_epochs)
     scheduler.step(val_loss)
     lr = optimizer.param_groups[0]['lr']
     print(
-      f'Epoch: {epoch + 1} of {epochs}, lr: {lr:.2E}, train loss: {train_loss:.2f}, valid loss: {val_loss:.2f}, corr: {corr:.2f}, best loss {best_loss:.2f}, number of epochs without improvement: {num_bad_epochs}')
+      f'Epoch: {epoch + current_epoch + 1} of {epochs}, lr: {lr:.2E}, train loss: {train_loss:.2f}, valid loss: {val_loss:.2f}, corr: {corr:.2f}, best loss {best_loss:.2f}, number of epochs without improvement: {num_bad_epochs}')
 
-  return is_new_best, model_save_path
+  return is_new_best, best_loss, model_save_path
 
 
 #Write a function to train the model
@@ -432,39 +432,62 @@ def load_model(model_path=None):
     state_dict = convert_state_dict(model_path)
     net.load_state_dict(state_dict, strict=True)
   return net
-def run_model(project_name, epochs=10):
+def run_model(project_name, epochs=10, kcrossval=10):
   save_dir = './utils/models/' + project_name + "/"
   #If save directory does not exist, create it
   if not os.path.exists(save_dir):
     os.makedirs(save_dir)
     print("new directory created for " + project_name)
-  csv_file = 'patients_dataset_6326_train.csv'
+  csv_file = 'patients_dataset_9573_train.csv'
   #Print the device we are currently working on
   print(DEVICE)
   df = pd.read_csv(csv_file)
-  trainloader, valloader = get_train_valid_loader(df, batch_size=3, random_seed=10, aug='none', kcrossval=None, icross=-1)
-  model_save_path = save_dir + datetime.datetime.now().strftime('{}_%d-%m-%y-%H_%M.pt'.format(project_name))
-  losses_save_path = save_dir + project_name + '_losses.csv'
-  # Create a new dataframe with the following columns: server_round, epoch, train_loss, val_loss, train_mae, val_mae
-  if not os.path.exists(losses_save_path):
-    with open(losses_save_path, 'w') as f:
-      f.write('server_round,epoch,train_loss,val_loss,time\n')
+  trainloaders, valloaders = get_train_valid_loader(df, batch_size=3, random_seed=10, aug='none', kcrossval=kcrossval, icross=-1)
+  # Load test data
+  testdf = pd.read_csv('patients_dataset_9573_test.csv')
+  testloader = get_test_loader(testdf, batch_size=4)
+  fold_losses = []
   dwood_seed_2 = dwood + 'seed_2.pt'
   net = load_model(dwood_seed_2).to(DEVICE)
-  _, save_path = train(net, trainloader, valloader, epochs, model_save_path, losses_save_path)
-  #Load test data
-  testdf = pd.read_csv('patients_dataset_6326_test.csv')
-  testloader = get_test_loader(testdf, batch_size=4)
-  #Validate the model using the test data
-  val_losses, _, _, _, _, val_mae = validate(net, testloader)
-  # If the repository does not exist, create it
-  if not os.path.exists(save_dir):
-    os.makedirs(save_dir)
-  # Write the losses to a file in save_dir
-  with open(save_dir + 'centralized_losses.txt', 'a') as f:
-    f.write(f"1,{val_losses}\n")
+  init_loss, _, _, _, _, _ = validate(net, testloader)
+  for k in range(kcrossval):
+    trainloader = trainloaders[k]
+    valloader = valloaders[k]
+    model_save_path = save_dir  + project_name + datetime.datetime.now().strftime(f'_fold_{k}_%d-%m-%y-%H_%M.pt')
+    losses_save_path = save_dir + project_name +  f'_fold_{k}' + '_losses.csv'
+    # Create a new dataframe with the following columns: server_round, epoch, train_loss, val_loss, train_mae, val_mae
+    if not os.path.exists(losses_save_path):
+      with open(losses_save_path, 'w') as f:
+        f.write('server_round,epoch,train_loss,val_loss,time\n')
+    dwood_seed_2 = dwood + 'seed_2.pt'
+    net = load_model(dwood_seed_2).to(DEVICE)
+    epoch_test_loss = []
+    best_loss = 1e9
+    for epoch in range(epochs):
+      _, best_loss, save_path = train(net, trainloader, valloader, 1, model_save_path, losses_save_path, best_loss=best_loss, current_epoch=epoch)
+      # Validate the model using the test data
+      test_loss, _, _, _, _, val_mae = validate(net, testloader)
+      epoch_test_loss.append(test_loss)
+    #Append the epoch test loss to the fold losses
+    fold_losses.append(epoch_test_loss)
+  #Get the average epoch test loss from the folds
+  fold_losses = np.array(fold_losses)
+  avg_epoch_test_loss = np.mean(fold_losses, axis=0)
+  #And get the standard deviation
+  std_epoch_test_loss = np.std(fold_losses, axis=0)
+  #Add the init loss at the start of the avg_epoch_test_loss
+  avg_epoch_test_loss = np.insert(avg_epoch_test_loss, 0, init_loss)
+  #Add 0 as the standard deviation for the init loss
+  std_epoch_test_loss = np.insert(std_epoch_test_loss, 0, 0)
+  for epoch, (avg_loss, std_loss) in enumerate(zip(avg_epoch_test_loss, std_epoch_test_loss)):
+      # Write the losses to a file in save_dir
+      with open(save_dir + 'centralized_losses.txt', 'a') as f:
+          f.write(f"{epoch},{avg_loss},{std_loss}\n")
+  # # If the repository does not exist, create it
+  # if not os.path.exists(save_dir):
+  #   os.makedirs(save_dir)
 
-  return save_path
+  # return save_path
 
 def test_model(project_name, test_loader, state_path=None):
   net = load_model(state_path).to(DEVICE)
@@ -479,12 +502,13 @@ def test_model(project_name, test_loader, state_path=None):
 
 
 if __name__ == '__main__':
-  test_df = pd.read_csv('patients_dataset_6326_test.csv')
-  test_loader = get_test_loader(test_df, batch_size=4, dataset_scale=1)
-  project_name = generate_project_name('FedProx', 'DWood', 'Dataset', 2)
-  model_path = get_pt_file_path(project_name)
-
-  test_model(project_name, test_loader, state_path=model_path)
+  run_model('centralized_DWood_seed_2_10_fold_kcrossval', epochs=2, kcrossval=2)
+  # test_df = pd.read_csv('patients_dataset_6326_test.csv')
+  # test_loader = get_test_loader(test_df, batch_size=4, dataset_scale=1)
+  # project_name = generate_project_name('FedProx', 'DWood', 'Dataset', 2)
+  # model_path = get_pt_file_path(project_name)
+  #
+  # test_model(project_name, test_loader, state_path=model_path)
   # df = pd.read_csv('patients_dataset_6326_train.csv')
   # split_save_datasets('patients_dataset_6326.csv')
   # train_df = pd.read_csv('patients_dataset_6326_train.csv')
@@ -506,7 +530,7 @@ if __name__ == '__main__':
   #   print(df.head())
 
   # downsize_data('patients_dataset_6326_test.csv', percentage=5)
-  # run_model('centralized_DWood_seed_31', epochs=10)
+
 
 
 
