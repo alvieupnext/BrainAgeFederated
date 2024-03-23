@@ -68,6 +68,7 @@ data = ['Distribution_Gaussian', 'Distribution_Original']
 # Keep track of all the project names and the losses
 project_losses = {}
 client_losses = {}
+alias = '10_fold_kcrossval'
 
 # For every strategy, generate a model and for every DWood seed
 for m in model:
@@ -85,8 +86,9 @@ for m in model:
       if m == 'DWood':
         for seed in seeds:
           seed_name = f'_seed_{seed}'
-          project_names.append(project_name + seed_name + '_ascending_epochs')
+          project_names.append(project_name + seed_name + f'_{alias}')
       else:
+        project_name += f'_{alias}'
         project_names.append(project_name)
       # Get the losses for the project
       losses = [get_centralized_losses(p) for p in project_names]
@@ -213,10 +215,13 @@ def plot_client_losses(client_losses, client_number=12, split='Dataset', mode='D
 
 # Plot the Age distribution, make it a function
 # Add spacing between the bins
-def plot_age_distribution(data, save_path=None):
+def plot_age_distribution(data, save_path=None, node=None):
   plt.figure(figsize=(10, 6))  # Increase figure size
   sns.set(style="whitegrid")  # Use seaborn style for prettier plots
-  data['Age'].plot(kind='hist', bins=20, title='Age Distribution', color='skyblue', edgecolor='black', rwidth=0.8)
+  title = f'Age Distribution'
+  if node:
+    title += f' (Node: {node})'
+  data['Age'].plot(kind='hist', bins=20, title=title, color='skyblue', edgecolor='black', rwidth=0.8)
   plt.xlabel('Age')
   plt.ylabel('Frequency')
   plt.grid(True)  # Add grid lines
