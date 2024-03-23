@@ -502,7 +502,7 @@ def test_model(project_name, test_loader, state_path=None):
 
 
 if __name__ == '__main__':
-  split_save_datasets('patients_dataset_9573.csv')
+  # split_save_datasets('patients_dataset_9573.csv')
   dwood_seed_2 = dwood + 'seed_2.pt'
   run_model('centralized_DWood_seed_2_10_fold_kcrossval', epochs=20, kcrossval=10, seed=dwood_seed_2)
   run_model('centralized_RW_10_fold_kcrossval', epochs=20, kcrossval=10)
