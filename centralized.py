@@ -432,7 +432,7 @@ def load_model(model_path=None):
     state_dict = convert_state_dict(model_path)
     net.load_state_dict(state_dict, strict=True)
   return net
-def run_model(project_name, epochs=10, kcrossval=10):
+def run_model(project_name, epochs=10, kcrossval=10, seed=None):
   save_dir = './utils/models/' + project_name + "/"
   #If save directory does not exist, create it
   if not os.path.exists(save_dir):
@@ -447,8 +447,8 @@ def run_model(project_name, epochs=10, kcrossval=10):
   testdf = pd.read_csv('patients_dataset_9573_test.csv')
   testloader = get_test_loader(testdf, batch_size=4)
   fold_losses = []
-  dwood_seed_2 = dwood + 'seed_2.pt'
-  net = load_model(dwood_seed_2).to(DEVICE)
+  # dwood_seed_2 = dwood + 'seed_2.pt'
+  net = load_model(seed).to(DEVICE)
   init_loss, _, _, _, _, _ = validate(net, testloader)
   for k in range(kcrossval):
     trainloader = trainloaders[k]
@@ -502,7 +502,9 @@ def test_model(project_name, test_loader, state_path=None):
 
 
 if __name__ == '__main__':
-  run_model('centralized_DWood_seed_2_10_fold_kcrossval', epochs=20, kcrossval=10)
+  dwood_seed_2 = dwood + 'seed_2.pt'
+  run_model('centralized_DWood_seed_2_10_fold_kcrossval', epochs=20, kcrossval=10, seed=dwood_seed_2)
+  run_model('centralized_RW_10_fold_kcrossval', epochs=20, kcrossval=10)
   # test_df = pd.read_csv('patients_dataset_6326_test.csv')
   # test_loader = get_test_loader(test_df, batch_size=4, dataset_scale=1)
   # project_name = generate_project_name('FedProx', 'DWood', 'Dataset', 2)
