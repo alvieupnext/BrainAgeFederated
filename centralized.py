@@ -89,7 +89,7 @@ def train(net, trainloader, valloader, epochs, model_save_path, losses_save_path
     scheduler.step(val_loss)
     lr = optimizer.param_groups[0]['lr']
     print(
-      f'Epoch: {epoch + current_epoch + 1} of {epochs}, lr: {lr:.2E}, train loss: {train_loss:.2f}, valid loss: {val_loss:.2f}, corr: {corr:.2f}, best loss {best_loss:.2f}, number of epochs without improvement: {num_bad_epochs}')
+      f'Epoch: {epoch + current_epoch + 1} of {epochs + current_epoch}, lr: {lr:.2E}, train loss: {train_loss:.2f}, valid loss: {val_loss:.2f}, corr: {corr:.2f}, best loss {best_loss:.2f}, number of epochs without improvement: {num_bad_epochs}')
 
   return is_new_best, best_loss, model_save_path
 
