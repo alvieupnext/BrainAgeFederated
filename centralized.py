@@ -505,7 +505,7 @@ if __name__ == '__main__':
   # split_save_datasets('patients_dataset_9573.csv')
   dwood_seed_2 = dwood + 'seed_2.pt'
   run_model('centralized_DWood_seed_2_10_fold_kcrossval', epochs=20, kcrossval=10, seed=dwood_seed_2)
-  # run_model('centralized_RW_10_fold_kcrossval', epochs=20, kcrossval=10)
+  run_model('centralized_RW_10_fold_kcrossval', epochs=20, kcrossval=10)
   # test_df = pd.read_csv('patients_dataset_6326_test.csv')
   # test_loader = get_test_loader(test_df, batch_size=4, dataset_scale=1)
   # project_name = generate_project_name('FedProx', 'DWood', 'Dataset', 2)
