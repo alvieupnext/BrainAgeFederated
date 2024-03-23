@@ -502,7 +502,7 @@ def test_model(project_name, test_loader, state_path=None):
 
 
 if __name__ == '__main__':
-  run_model('centralized_DWood_seed_2_10_fold_kcrossval', epochs=2, kcrossval=2)
+  run_model('centralized_DWood_seed_2_10_fold_kcrossval', epochs=20, kcrossval=10)
   # test_df = pd.read_csv('patients_dataset_6326_test.csv')
   # test_loader = get_test_loader(test_df, batch_size=4, dataset_scale=1)
   # project_name = generate_project_name('FedProx', 'DWood', 'Dataset', 2)
