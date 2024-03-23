@@ -242,7 +242,7 @@ class FedProxClient(FlowerClient):
       print(
         f'Epoch: {epoch + 1} of {epochs}, lr: {lr:.2E}, train loss: {train_loss:.2f}, valid loss: {val_loss:.2f}, corr: {corr:.2f}, best loss {best_loss:.2f}, number of epochs without improvement: {num_bad_epochs}')
 
-    return is_new_best, model_save_path
+    return is_new_best, model_save_path, best_loss
 
   def train_epoch_proximal(self, criterion, optimizer, trainloader, proximal_mu, parameters):
     self.net.train()
