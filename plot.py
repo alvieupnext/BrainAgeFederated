@@ -201,15 +201,15 @@ def plot_client_losses(client_losses, client_number=12, split='Dataset', mode='D
   # Display the plot
   plt.show()
 
-#If the plot folder does not exist, create it
-if not os.path.exists(plot_folder):
-  os.makedirs(plot_folder)
-# Plot the losses
-plot_losses(project_losses, split='Distribution', mode='DWood')
-plot_client_losses(client_losses,4, split='Distribution', mode='DWood')
-
-# Read patients_dataset_9573_noage.csv
-dataset = pd.read_csv('patients_dataset_9573.csv')
+# #If the plot folder does not exist, create it
+# if not os.path.exists(plot_folder):
+#   os.makedirs(plot_folder)
+# # Plot the losses
+# plot_losses(project_losses, split='Distribution', mode='DWood')
+# plot_client_losses(client_losses,4, split='Distribution', mode='DWood')
+#
+# # Read patients_dataset_9573_noage.csv
+# dataset = pd.read_csv('patients_dataset_9573.csv')
 
 # Plot the Age distribution, make it a function
 # Add spacing between the bins
