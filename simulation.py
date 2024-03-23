@@ -33,7 +33,7 @@ from utils import dwood
 # testloader = get_test_loader(testdf, batch_size=4, dataset_scale=1)
 
 #Generate a client function which takes the project name and returns a function that creates a FlowerClient
-def gen_client_fn(project_name, strategy, save_dir, dfs):
+def gen_client_fn(project_name, strategy, save_dir, dfs, kcrossval):
   def client_fn(cid: str) -> FlowerClient:
     """Create a Flower client representing a single organization."""
 
@@ -47,10 +47,10 @@ def gen_client_fn(project_name, strategy, save_dir, dfs):
 
     if strategy == 'FedAvg':
       # Create a  single Flower client representing a single organization
-      return FlowerClient(net, project_name, save_dir, dataset, cid, name)
+      return FlowerClient(net, project_name, save_dir, dataset, cid, name=name, kcrossval=kcrossval)
     elif strategy == 'FedProx':
       # Create a  single FedProx representing a single organization
-      return FedProxClient(net, project_name, save_dir, dataset, cid, name)
+      return FedProxClient(net, project_name, save_dir, dataset, cid, name=name, kcrossval=kcrossval)
   return client_fn
 
 #Evaluation server side using test csv
@@ -90,7 +90,7 @@ def generate_fit_config(epochs: int, patience:int):
       "server_round": server_round,  # The current round of federated learning
       #During the first few rounds, run for full epochs, after round 2, half epochs
       #Run as many epochs as server rounds
-      "local_epochs": server_round,
+      "local_epochs": 1,
       "patience": patience
     }
     return config
@@ -127,8 +127,8 @@ def generate_client_resources(num_cpus: int, num_gpus: float, clients: int):
 #   return FedProxClient(net, project_name, trainloader, valloader, cid, name)
 
 # A function that returns a strategy and client_fn based on the strategy and save_dir
-def get_config(strategy, save_dir, net, parameters, epochs, patience, dfs, testloader):
-  client_fn = gen_client_fn(project_name, strategy, save_dir, dfs)
+def get_config(strategy, save_dir, net, parameters, epochs, patience, dfs, testloader, kcrossval):
+  client_fn = gen_client_fn(project_name, strategy, save_dir, dfs, kcrossval)
   if strategy == 'FedAvg':
     return SaveFedAvg(
       fraction_fit=1.0,  # Sample 100% of available clients for training
@@ -170,6 +170,8 @@ if __name__ == "__main__":
   parser.set_defaults(distribution='Original')
   parser.add_argument('--server_rounds', type=int, required=False)
   parser.set_defaults(server_rounds=5)
+  parser.add_argument('--kcrossval', type=int, required=False)
+  parser.set_defaults(kcrossval=10)
   args = parser.parse_args()
   #For the mode, if no seed provided, mode is RW
   if args.seed is None:
@@ -208,7 +210,7 @@ if __name__ == "__main__":
   testloader = get_test_loader(testdf, batch_size=4, dataset_scale=1)
 
   #get the client_fn and strategy from the arguments
-  strategy, client_fn = get_config(args.strategy, save_dir, net, parameters, args.epochs, args.patience, dfs, testloader)
+  strategy, client_fn = get_config(args.strategy, save_dir, net, parameters, args.epochs, args.patience, dfs, testloader, args.kcrossval)
 
   # If the repository does not exist, create it
   if not os.path.exists(save_dir):
