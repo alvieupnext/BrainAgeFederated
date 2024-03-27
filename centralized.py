@@ -459,8 +459,7 @@ def run_model(project_name, epochs=10, kcrossval=10, seed=None):
     if not os.path.exists(losses_save_path):
       with open(losses_save_path, 'w') as f:
         f.write('server_round,epoch,train_loss,val_loss,time\n')
-    dwood_seed_2 = dwood + 'seed_2.pt'
-    net = load_model(dwood_seed_2).to(DEVICE)
+    net = load_model(seed).to(DEVICE)
     epoch_test_loss = []
     best_loss = 1e9
     for epoch in range(epochs):
@@ -503,8 +502,8 @@ def test_model(project_name, test_loader, state_path=None):
 
 if __name__ == '__main__':
   # split_save_datasets('patients_dataset_9573.csv')
-  dwood_seed_2 = dwood + 'seed_2.pt'
-  run_model('centralized_DWood_seed_2_10_fold_kcrossval', epochs=20, kcrossval=10, seed=dwood_seed_2)
+  # dwood_seed_2 = dwood + 'seed_2.pt'
+  # run_model('centralized_DWood_seed_2_10_fold_kcrossval', epochs=20, kcrossval=10, seed=dwood_seed_2)
   run_model('centralized_RW_10_fold_kcrossval', epochs=20, kcrossval=10)
   # test_df = pd.read_csv('patients_dataset_6326_test.csv')
   # test_loader = get_test_loader(test_df, batch_size=4, dataset_scale=1)
