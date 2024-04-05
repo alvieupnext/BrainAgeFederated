@@ -3,6 +3,10 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.mixture import GaussianMixture as GM
+
+from plot import plot_dataset_distribution, plot_parent_dataset_distribution, plot_age_distribution
+
+
 #Obtain the distribution of the age of the patients
 def age_distribution(data):
     return data['Age'].values
@@ -183,13 +187,13 @@ def dataset_from_distribution(df, distribution, n, resample=True):
 
 
 #Function for plotting the age distribution
-def plot_age_distribution(data, name):
-    plt.figure(figsize=(10, 6))
-    sns.histplot(data, kde=True, bins=30)
-    plt.title(f'Age Distribution ({name})')
-    plt.xlabel('Age')
-    plt.ylabel('Frequency')
-    plt.show()
+# def plot_age_distribution(data, name):
+#     plt.figure(figsize=(10, 6))
+#     sns.histplot(data, kde=True, bins=30)
+#     plt.title(f'Age Distribution ({name})')
+#     plt.xlabel('Age')
+#     plt.ylabel('Frequency')
+#     plt.show()
 
 #Overall data
 # overall_data = []
@@ -213,10 +217,10 @@ def plot_age_distribution(data, name):
 #
 # plot_age_distribution(age_distribution(df), 'OriginalData')
 
-df = pd.read_csv('patients_dataset_9573.csv')
+dataset = pd.read_csv('patients_dataset_9573.csv')
 
 #Drop dataset and dataset_name columns
-df = df.drop(columns=['dataset', 'dataset_name'])
+df = dataset.drop(columns=['dataset', 'dataset_name'])
 
 #Split the dataframe into three dataframes, get the length of each dataframe
 df_length = len(df) // 3
@@ -237,21 +241,20 @@ distribution_profiles = {'Original': {1: original, 2: original, 3: original},
 # G2 = dataset_from_distribution(df, get_distribution(*normal_distribution2), df_length)
 # G3 = dataset_from_distribution(df, get_distribution(*normal_distribution3), df_length)
 # G4 = dataset_from_distribution(df, get_distribution(*mixture_distribution), df_length)
-#
-# #For all datasets, plot the age distribution
-# plot_age_distribution(age_distribution(G1), 'G1')
-# plot_age_distribution(age_distribution(G2), 'G2')
-# plot_age_distribution(age_distribution(G3), 'G3')
-# plot_age_distribution(age_distribution(G4), 'G4')
+# # #For all datasets, plot the age distribution
+# plot_age_distribution(G1, 'utils/plots/age_distributionYoung.pdf', 'Young')
+# # plot_age_distribution(age_distribution(G2), 'utils/plots/age_distributionG2.pdf','G2')
+# plot_age_distribution(G3, 'utils/plots/age_distributionOld.pdf', 'Old')
+# plot_age_distribution(G4, 'utils/plots/age_distributionMixture.pdf','Mixture')
 
 
 # print(retrieve_patients_with_closest_age(df, 22.70).head())
 
 
 #Call the functions
-# plot_age_distribution(dataset)
-# # plot_dataset_distribution(dataset)
-# # plot_parent_dataset_distribution(dataset)
+# plot_age_distribution(dataset, 'utils/plots/age_distribution.pdf')
+# # plot_dataset_distribution(dataset, 'utils/plots/dataset_distribution.pdf')
+# plot_parent_dataset_distribution(dataset, 'utils/plots/parent_dataset_distribution.pdf')
 # print(age_distribution(dataset))
 # gmm, data = fit_gaussian_mixture('patients_dataset_9573.csv')
 #
