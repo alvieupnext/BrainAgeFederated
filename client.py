@@ -46,6 +46,19 @@ class FlowerClient(fl.client.NumPyClient):
       self.save_dir = save_dir
       #Plot the data distribution of the dataset
       self.plot_age_distribution()
+      #Save the patient ids in a text file
+      self.save_patient_ids()
+
+    def save_patient_ids(self):
+      friendly_name = str(self.name) or str(self.cid)
+      client_save_dir = self.save_dir + friendly_name + "/"
+      if not os.path.exists(client_save_dir):
+          os.makedirs(client_save_dir)
+      ids_save_dir = client_save_dir + "patient_ids.txt"
+      ids = self.dataset['ID']
+      with open(ids_save_dir, 'w') as f:
+          for item in ids:
+              f.write("%s\n" % item)
 
     def plot_age_distribution(self):
       friendly_name = str(self.name) or str(self.cid)
