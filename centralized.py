@@ -315,8 +315,10 @@ def get_test_loader(df, batch_size, dataset_scale=1.0):
   return test_loader
 
 #Function for splitting datasets
-def group_datasets(df, mode='dataset', turbulence=0.0, distributions={}):
+def group_datasets(df, mode='dataset', turbulence=0.0, distributions=None):
   #If dataset mode, split the dataframe by the dataset column
+  if distributions is None:
+    distributions = {}
   if mode == 'dataset':
     # Split the dataset by the dataset column
     groups = df.groupby('dataset')
@@ -326,7 +328,18 @@ def group_datasets(df, mode='dataset', turbulence=0.0, distributions={}):
   elif mode == 'distribution':
     num_clients = len(distributions)
     patients_per_client = len(df) // num_clients
-    return {name: dataset_from_distribution(df, distribution, patients_per_client) for name, distribution in distributions.items()}
+    result = {}
+    used_patients = set()
+    i = 1
+    for name, distribution in distributions.items():
+      dataset, used_patients = dataset_from_distribution(df, distribution, patients_per_client, resample=False, used_patients=used_patients)
+      print("Number of Patients Used")
+      print(len(used_patients))
+      print("Number of Intended Patients in Dataset")
+      print(i * patients_per_client)
+      i += 1
+      result[name] = dataset
+    return result
   else:
     try:
       n = int(mode)

@@ -125,7 +125,7 @@ mixture_distribution = gaussian_mixture_config(2, 10, df)
 original_distribution = original_distribution_config(df)
 
 #Given a dataframe and an age, retrieve all patients with that age
-def retrieve_patients_with_closest_age(df, age):
+def retrieve_patients_with_closest_age(df, age, used_patients=None):
     """
     Retrieve patients with a given age or the closest age from a DataFrame.
 
@@ -139,6 +139,10 @@ def retrieve_patients_with_closest_age(df, age):
     # Check if the DataFrame is empty
     if df.empty:
         return df  # Return the empty DataFrame directly
+
+    # If there are used_patients, remove them from the DataFrame
+    if used_patients is not None:
+        df = df[~df['ID'].isin(used_patients)]
 
     # Find patients with the exact age
     patients = df.loc[df['Age'] == age]
@@ -156,13 +160,15 @@ def retrieve_patients_with_closest_age(df, age):
 
 
 # Given a dataset, distribution and n samples, create a new dataset with the same distribution
-def dataset_from_distribution(df, distribution, n, resample=True):
+def dataset_from_distribution(df, distribution, n, resample=True, used_patients=None):
     #Create a new dataframe with the same columns as the original
+    if used_patients is None:
+        used_patients = set()
     new_df = pd.DataFrame(columns=df.columns)
     #Obtain the youngest and oldest ages
     youngest_age = df['Age'].min()
     oldest_age = df['Age'].max()
-    used_patients = set()
+    # used_patients = set()
     for i in range(n):
         sample_patients = pd.DataFrame(columns=df.columns)
         while sample_patients.empty:
@@ -170,19 +176,20 @@ def dataset_from_distribution(df, distribution, n, resample=True):
             sample_age = distribution.sample_with_limits(1, youngest_age, oldest_age)
             #Unnest the sample age
             sample_age = sample_age[0]
-            #From the sample age, retrieve all patients with that age
-            sample_patients = retrieve_patients_with_closest_age(df, sample_age)
             if not resample:
+                # From the sample age, retrieve all patients with that age
+                sample_patients = retrieve_patients_with_closest_age(df, sample_age, used_patients=used_patients)
+            else:
                 #From the sample patients, remove all entries that have their ID in used_patients
-                sample_patients = sample_patients[~sample_patients['ID'].isin(used_patients)]
+                sample_patients = retrieve_patients_with_closest_age(df, sample_age, used_patients=None)
+                # sample_patients = sample_patients[~sample_patients['ID'].isin(used_patients)]
         #Obtain a random patient from the sample patients
         patient = sample_patients.sample(n=1)
         #Add the patient to the new dataframe
         new_df = pd.concat([new_df, patient], ignore_index=True)
       #If resample is False, add the patient to used_patients
-        if not resample:
-            used_patients.add(patient['ID'].values[0])
-    return new_df
+        used_patients.add(patient['ID'].values[0])
+    return new_df, used_patients
 
 
 
