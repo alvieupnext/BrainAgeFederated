@@ -352,6 +352,8 @@ def plot_age_distribution(data, save_path=None, node=None):
 # Only give a top 20 of the dataset_name, all other datasets should be classified as 'Other'
 def plot_dataset_distribution(data, save_path=None):
     value_counts = data['dataset_name'].value_counts()
+    for dataset_name, count in value_counts.items():
+      print(f'{dataset_name}: {count}')
     top_20 = value_counts.nlargest(20)
     other_count = value_counts[20:].sum()
     top_20['Other'] = other_count
@@ -373,6 +375,9 @@ def plot_parent_dataset_distribution(data, save_path=None):
     plt.figure(figsize=(10, 6))  # Increase figure size
     sns.set(style="whitegrid")  # Use seaborn style
     data['dataset'].value_counts().plot(kind='bar', title='Dataset Distribution', color='lightcoral', edgecolor='black')
+    value_counts = data['dataset'].value_counts()
+    for dataset_name, count in value_counts.items():
+      print(f'{dataset_name}: {count}')
     plt.ylabel('Amount of Patients')
     plt.xlabel('Dataset')
     plt.xticks(rotation=45, ha='right')  # Rotate and align labels
@@ -381,3 +386,13 @@ def plot_parent_dataset_distribution(data, save_path=None):
     if save_path:
       plt.savefig(save_path, format='pdf', dpi=300, bbox_inches='tight')
     plt.show()
+
+if __name__ == "__main__":
+    # Read the dataset
+    dataset = pd.read_csv('patients_dataset_6326.csv')
+    # Plot the age distribution
+    # plot_age_distribution(dataset)
+    # Plot the dataset_name distribution
+    plot_dataset_distribution(dataset)
+    # Plot the parent dataset distribution
+    plot_parent_dataset_distribution(dataset)
