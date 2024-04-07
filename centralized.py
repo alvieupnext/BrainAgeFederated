@@ -330,6 +330,7 @@ def group_datasets(df, mode='dataset', turbulence=0.0, distributions=None):
     patients_per_client = len(df) // num_clients
     result = {}
     used_patients = set()
+    #TODO CHANGE TO NEW FUNCTION
     for name, distribution in distributions.items():
       dataset, used_patients = dataset_from_distribution(df, distribution, patients_per_client, resample=False, used_patients=used_patients)
       result[name] = dataset
