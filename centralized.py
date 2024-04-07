@@ -525,10 +525,19 @@ def test_federated_models(project_name, test_loader, device):
   print(pt_files)
 
   centralized_losses_path = os.path.join(model_path, 'centralized_losses.txt')
+  first_loss = 0.0
+  #Get the first line of the file which is a format of 0,loss
+  with open(centralized_losses_path, 'r') as f:
+    first_line = f.readline()
+    #Get the first loss
+    first_loss = float(first_line.split(',')[1])
   if os.path.exists(centralized_losses_path):
     # Append timestamp to the old file name
     timestamp = datetime.datetime.now().strftime('%d-%m-%y-%H_%M')
     os.rename(centralized_losses_path, os.path.join(model_path, f'centralized_losses_old_{timestamp}.txt'))
+  # Create a new file with the first loss
+  with open(centralized_losses_path, 'w') as f:
+    f.write(f"0,{first_loss}\n")
 
   for i, pt_file in enumerate(pt_files):
     # Test the model
@@ -539,7 +548,7 @@ def test_federated_models(project_name, test_loader, device):
     # Since we have saved the old losses, we can append to the new file
     # Overwrite centralized_losses.txt
     with open(centralized_losses_path, 'a') as f:
-      f.write(f"{i},{test_loss}\n")
+      f.write(f"{i+1},{test_loss}\n")
 
 
 
@@ -552,9 +561,9 @@ if __name__ == '__main__':
   # dwood_seed_2 = dwood + 'seed_2.pt'
   # run_model('centralized_DWood_seed_2_10_fold_kcrossval', epochs=20, kcrossval=10, seed=dwood_seed_2)
   # run_model('centralized_RW_10_fold_kcrossval', epochs=20, kcrossval=10)
-  df = pd.read_csv('patients_dataset_9573_test.csv')
+  df = pd.read_csv('patients_dataset_6326_test_downsized_1.csv')
   test_loader = get_test_loader(df, batch_size=4)
-  test_federated_models('FedProx_RW_Distribution_Gaussian_cputest', test_loader, device='cpu')
+  test_federated_models('FedAvg_RW_Distribution_Gaussian_cputest2', test_loader, device='cpu')
 
 
 
