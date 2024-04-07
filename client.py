@@ -7,7 +7,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from tqdm import tqdm
 
 from centralized import (get_test_loader, get_train_valid_loader, group_datasets,
-                         train, validate, convert_state_dict, load_model, DEVICE, check_improvement, update_loss_df)
+                         train, validate, convert_state_dict, load_model, check_improvement, update_loss_df)
 from collections import OrderedDict
 import flwr as fl
 import torch.nn as nn
@@ -32,7 +32,7 @@ def set_parameters(model, parameters):
 
 class FlowerClient(fl.client.NumPyClient):
 
-    def __init__(self, net, project_name, save_dir, dataset, cid, name=None, kcrossval=10):
+    def __init__(self, net, project_name, save_dir, dataset, cid, name=None, kcrossval=10, device='cuda'):
       self.net = net
       self.dataset = dataset
       #Split the dataset into train and validation
@@ -44,6 +44,7 @@ class FlowerClient(fl.client.NumPyClient):
       self.name = name
       self.project_name = project_name
       self.save_dir = save_dir
+      self.device = device
       #Plot the data distribution of the dataset
       self.plot_age_distribution()
       #Save the patient ids in a text file
@@ -91,7 +92,7 @@ class FlowerClient(fl.client.NumPyClient):
             print(f"Model reached patience: {patience}")
             # break
           train_loss = self.train_epoch(trainloader, criterion, optimizer)
-          val_loss, corr, true_ages, pred_ages, ids_sub, mae = validate(self.net, valloader)
+          val_loss, corr, true_ages, pred_ages, ids_sub, mae = validate(self.net, valloader, self.device)
           update_loss_df(losses_save_path, server_round, epoch, train_loss, val_loss)
           is_new_best, best_loss, num_bad_epochs = check_improvement(val_loss, best_loss, self.net, model_save_path, epoch,
                                                                      num_bad_epochs)
@@ -108,8 +109,8 @@ class FlowerClient(fl.client.NumPyClient):
       train_count = 0
       for data in tqdm(trainloader, leave=False):
         im, age, _ = data
-        im = im.to(device=DEVICE, dtype=torch.float)
-        age = age.to(device=DEVICE, dtype=torch.float).reshape(-1, 1)
+        im = im.to(device=self.device, dtype=torch.float)
+        age = age.to(device=self.device, dtype=torch.float).reshape(-1, 1)
         optimizer.zero_grad()
         pred_age = self.net(im)
         loss = criterion(pred_age, age)
@@ -214,7 +215,7 @@ class FlowerClient(fl.client.NumPyClient):
       val_losses = []
       val_lengths = []
       for valloader in self.valloaders:
-        val_loss, _, _, _, _, val_mae = validate(self.net, valloader)
+        val_loss, _, _, _, _, val_mae = validate(self.net, valloader, self.device)
         val_losses.append(val_loss)
         val_lengths.append(len(valloader))
       # val_losses, _, _, _, _, val_mae = validate(self.net, self.valloader)
@@ -246,7 +247,7 @@ class FedProxClient(FlowerClient):
         print(f"Model reached patience: {patience}")
         # break
       train_loss = self.train_epoch_proximal(criterion, optimizer, trainloader, proximal_mu, global_params)
-      val_loss, corr, true_ages, pred_ages, ids_sub, mae = validate(self.net, valloader)
+      val_loss, corr, true_ages, pred_ages, ids_sub, mae = validate(self.net, valloader, self.device)
       update_loss_df(losses_save_path, server_round, epoch, train_loss, val_loss)
       is_new_best, best_loss, num_bad_epochs = check_improvement(val_loss, best_loss, self.net, model_save_path, epoch,
                                                                  num_bad_epochs)
@@ -263,8 +264,8 @@ class FedProxClient(FlowerClient):
     train_count = 0
     for data in tqdm(trainloader, leave=False):
       im, age, _ = data
-      im = im.to(device=DEVICE, dtype=torch.float)
-      age = age.to(device=DEVICE, dtype=torch.float).reshape(-1, 1)
+      im = im.to(device=self.device, dtype=torch.float)
+      age = age.to(device=self.device, dtype=torch.float).reshape(-1, 1)
       optimizer.zero_grad()
       proximal_term = 0.0
       for local_weights, global_weights in zip(self.net.parameters(), parameters):
