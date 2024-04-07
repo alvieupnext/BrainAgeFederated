@@ -157,7 +157,7 @@ def train(net, trainloader, valloader, epochs, model_save_path, losses_save_path
 
 #Validates how good a model used
 #Acts as the validator with the valloader and as the tester with the testloader
-def validate(net, dataloader):
+def validate(net, dataloader, device=DEVICE):
   criterion = nn.L1Loss()
   val_loss = 0.0
   val_count = 0
@@ -168,8 +168,8 @@ def validate(net, dataloader):
       net.eval()
       for k, data in enumerate(tqdm(dataloader, leave=False)):
           im, age, ids = data
-          im = im.to(device=DEVICE, dtype = torch.float)
-          age = age.to(device=DEVICE, dtype=torch.float)
+          im = im.to(device=device, dtype = torch.float)
+          age = age.to(device=device, dtype=torch.float)
           age = age.reshape(-1,1)
           pred_age = net(im)
           for pred, chron_age, idsub in zip(pred_age, age, ids):
@@ -330,14 +330,8 @@ def group_datasets(df, mode='dataset', turbulence=0.0, distributions=None):
     patients_per_client = len(df) // num_clients
     result = {}
     used_patients = set()
-    i = 1
     for name, distribution in distributions.items():
       dataset, used_patients = dataset_from_distribution(df, distribution, patients_per_client, resample=False, used_patients=used_patients)
-      print("Number of Patients Used")
-      print(len(used_patients))
-      print("Number of Intended Patients in Dataset")
-      print(i * patients_per_client)
-      i += 1
       result[name] = dataset
     return result
   else:
@@ -501,14 +495,53 @@ def run_model(project_name, epochs=10, kcrossval=10, seed=None):
 
   # return save_path
 
-def test_model(project_name, test_loader, state_path=None):
-  net = load_model(state_path).to(DEVICE)
-  test_loss, corr, true_ages, pred_ages, ids_sub, mae = validate(net, test_loader)
-  save_dir = './utils/tests/' + project_name + "/"
-  #Create the directory if it does not exist
-  if not os.path.exists(save_dir):
-    os.makedirs(save_dir)
-  save_csv_prediction(save_dir, project_name, true_ages, pred_ages, ids_sub)
+def test_model(project_name, test_loader, state_path=None, csv_save=True, device=DEVICE):
+  net = load_model(state_path).to(device)
+  test_loss, corr, true_ages, pred_ages, ids_sub, mae = validate(net, test_loader, device)
+  if csv_save:
+    save_dir = './utils/tests/' + project_name + "/"
+    # Create the directory if it does not exist
+    if not os.path.exists(save_dir):
+      os.makedirs(save_dir)
+    save_csv_prediction(save_dir, project_name, true_ages, pred_ages, ids_sub)
+  return test_loss, corr, mae
+
+#A function that generates centralized losses for a project_name
+#Used to fix the centralized losses when the wrong test dataset is used
+def test_federated_models(project_name, test_loader, device):
+  # Go to the folder containing all federated models
+  model_path = os.path.join('./utils', 'models', project_name)
+
+  # Ensure model_path exists
+  if not os.path.exists(model_path):
+    print(f"Directory {model_path} not found.")
+    return
+
+  # In this folder, obtain all pt files that start with federated_model
+  pt_files = [f for f in os.listdir(model_path) if f.startswith('federated_model')]
+  # Sort the pt files alphabetically
+  pt_files.sort()
+  print(pt_files)
+
+  centralized_losses_path = os.path.join(model_path, 'centralized_losses.txt')
+  if os.path.exists(centralized_losses_path):
+    # Append timestamp to the old file name
+    timestamp = datetime.datetime.now().strftime('%d-%m-%y-%H_%M')
+    os.rename(centralized_losses_path, os.path.join(model_path, f'centralized_losses_old_{timestamp}.txt'))
+
+  for i, pt_file in enumerate(pt_files):
+    # Test the model
+    test_loss, corr, mae = test_model(project_name, test_loader, state_path=os.path.join(model_path, pt_file),
+                                      csv_save=False, device=device)
+    print(f'Model {i + 1} - test loss: {test_loss:.2f}, corr: {corr:.2f}, mae: {mae:.2f}')
+    # Write the losses to a file in save_dir
+    # Since we have saved the old losses, we can append to the new file
+    # Overwrite centralized_losses.txt
+    with open(centralized_losses_path, 'a') as f:
+      f.write(f"{i},{test_loss}\n")
+
+
+
 
 
 
@@ -517,7 +550,13 @@ if __name__ == '__main__':
   # split_save_datasets('patients_dataset_9573.csv')
   # dwood_seed_2 = dwood + 'seed_2.pt'
   # run_model('centralized_DWood_seed_2_10_fold_kcrossval', epochs=20, kcrossval=10, seed=dwood_seed_2)
-  run_model('centralized_RW_10_fold_kcrossval', epochs=20, kcrossval=10)
+  # run_model('centralized_RW_10_fold_kcrossval', epochs=20, kcrossval=10)
+  df = pd.read_csv('patients_dataset_9573_test.csv')
+  test_loader = get_test_loader(df, batch_size=4)
+  test_federated_models('FedProx_RW_Distribution_Gaussian_cputest', test_loader, device='cpu')
+
+
+
   # test_df = pd.read_csv('patients_dataset_6326_test.csv')
   # test_loader = get_test_loader(test_df, batch_size=4, dataset_scale=1)
   # project_name = generate_project_name('FedProx', 'DWood', 'Dataset', 2)
