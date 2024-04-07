@@ -235,6 +235,75 @@ def dataset_from_distribution(df, distribution, n, resample=False, used_patients
         used_patients.add(patient['ID'].values[0])
     return new_df, used_patients
 
+#Returns n dataframes from the distribution, without resampling
+#This function samples all patients at once per distribution
+#Which gives the first distribution an unfair advantage
+#However, the dataframes produced from this function are more likely to be statistically accurate
+#As such, we use this function for the original, Gaussian and mixture distributions
+#Distributions = name -> distribution object
+def dataframes_by_distribution_full_sample(df, distributions):
+    #For each distribution, create a dataset
+    num_clients = len(distributions)
+    patients_per_client = len(df) // num_clients
+    result = {}
+    used_patients = set()
+    for name, distribution in distributions.items():
+        dataset, used_patients = dataset_from_distribution(df, distribution, patients_per_client, resample=False,
+                                                           used_patients=used_patients)
+        result[name] = dataset
+    return result
+
+
+#Return n dataframes from the distribution, without resampling
+#This function has the same functionality as dataset_from_distribution, but it samples one patient at a time
+#This should give some distributions a fair chance to sample patients
+#The previous function samples all patients at once per distribution, as it gives the first distribution an unfair advantage
+#The disadvantage of this function is that it is slower, and it forces statistical unlikely samples to be taken
+#due to how the current sampling is implemented
+#As such this function is only used for the transition distributions, as they are a mixture of two distributions
+#Distributions = name -> distribution object
+def dataframes_by_distribution_fair_sample(df, distributions):
+    num_clients = len(distributions)
+    patients_per_client = len(df) // num_clients
+    #For each distribution, create a dataset
+    datasets = [pd.DataFrame(columns=df.columns) for _ in range(num_clients)]
+    # Obtain the youngest and oldest ages
+    youngest_age = df['Age'].min()
+    oldest_age = df['Age'].max()
+    #Distribution names
+    distribution_names = list(distributions.keys())
+    #Distributions
+    distribution_objects = list(distributions.values())
+    #For every row in the dataframe
+    used_patients = set()
+    for i in range(len(df)):
+        #Obtain the correct client index
+        client_index = i % num_clients
+        #Obtain the distribution object
+        distribution = distribution_objects[client_index]
+        #Sample the distribution with the limits
+        sample_age = distribution.sample_with_limits(1, youngest_age, oldest_age)
+        #Unnest the sample age
+        sample_age = sample_age[0]
+        #From the sample age, retrieve all patients with that age
+        sample_patients = retrieve_patients_with_closest_age(df, sample_age, used_patients=used_patients)
+        #Obtain a random patient from the sample patients
+        patient = sample_patients.sample(n=1)
+        #Add the patient to the new dataframe
+        datasets[client_index] = pd.concat([datasets[client_index], patient], ignore_index=True)
+        #Add the patient to used_patients
+        used_patients.add(patient['ID'].values[0])
+    result = {}
+    for i in range(num_clients):
+        result[distribution_names[i]] = datasets[i]
+    return result
+
+def dataframes_by_distribution(df, distributions, profile):
+    if profile == 'Transition':
+        return dataframes_by_distribution_fair_sample(df, distributions)
+    return dataframes_by_distribution_full_sample(df, distributions)
+
+
 
 
 #Function for plotting the age distribution
@@ -302,32 +371,38 @@ distribution_profiles_6_nodes = {'Original': {1: original, 2: original, 3: origi
                                      },
                          }
 
+# mode = 'Gaussian'
+# #Obtain the original 6 nodes distribution
+# nodes = distribution_profiles_6_nodes[mode]
+# datasets = dataframes_by_distribution(df, nodes, mode)
+# for name, data in datasets.items():
+#     plot_age_distribution(data, None, name)
 #Create a general dictionary for the distributions
-
-# G1 = dataset_from_distribution(df, get_distribution(*normal_distribution1), df_length)
-# G2 = dataset_from_distribution(df, get_distribution(*normal_distribution2), df_length)
-# G3 = dataset_from_distribution(df, get_distribution(*normal_distribution3), df_length)
+# used_patients = set()
+# G1, used_patients = dataset_from_distribution(df, get_distribution(*normal_distribution1), df_length, used_patients=used_patients)
+# G2, used_patients = dataset_from_distribution(df, get_distribution(*normal_distribution2), df_length, used_patients=used_patients)
+# G3, used_patients = dataset_from_distribution(df, get_distribution(*normal_distribution3), df_length, used_patients=used_patients)
 # G4 = dataset_from_distribution(df, get_distribution(*mixture_distribution), df_length)
 # # #For all datasets, plot the age distribution
-# plot_age_distribution(G1, 'utils/plots/age_distributionYoung.pdf', 'Young')
-# # plot_age_distribution(age_distribution(G2), 'utils/plots/age_distributionG2.pdf','G2')
-# plot_age_distribution(G3, 'utils/plots/age_distributionOld.pdf', 'Old')
+# plot_age_distribution(G1, 'utils/plots/age_distributionYoungNoResample.pdf', 'Young')
+# plot_age_distribution(G2, 'utils/plots/age_distributionYoungNoResample2.pdf','Young2')
+# plot_age_distribution(G3, 'utils/plots/age_distributionMature.pdf', 'Mature')
 # plot_age_distribution(G4, 'utils/plots/age_distributionMixture.pdf','Mixture')
-used_patients = set()
-T1, used_patients = dataset_from_distribution(df, get_distribution(*two_gaussian_1), df_length, resample=False, used_patients=used_patients)
-T2, used_patients = dataset_from_distribution(df, get_distribution(*two_gaussian_2), df_length, resample=False, used_patients=used_patients)
-T6, used_patients = dataset_from_distribution(df, get_distribution(*two_gaussian_6), df_length, resample=False, used_patients=used_patients)
-T5, used_patients = dataset_from_distribution(df, get_distribution(*two_gaussian_5), df_length, resample=False, used_patients=used_patients)
-T3, used_patients = dataset_from_distribution(df, get_distribution(*two_gaussian_3), df_length, resample=False, used_patients=used_patients)
-T4, used_patients = dataset_from_distribution(df, get_distribution(*two_gaussian_4), df_length, resample=False, used_patients=used_patients)
-
-#For all datasets, plot the age distribution
-plot_age_distribution(T1, f'utils/plots/age_distribution{two_gaussian_1[0]}.pdf', two_gaussian_1[0])
-plot_age_distribution(T2, f'utils/plots/age_distribution{two_gaussian_2[0]}.pdf', two_gaussian_2[0])
-plot_age_distribution(T3, f'utils/plots/age_distribution{two_gaussian_3[0]}.pdf', two_gaussian_3[0])
-plot_age_distribution(T4, f'utils/plots/age_distribution{two_gaussian_4[0]}.pdf', two_gaussian_4[0])
-plot_age_distribution(T5, f'utils/plots/age_distribution{two_gaussian_5[0]}.pdf', two_gaussian_5[0])
-plot_age_distribution(T6, f'utils/plots/age_distribution{two_gaussian_6[0]}.pdf', two_gaussian_6[0])
+# used_patients = set()
+# T1, used_patients = dataset_from_distribution(df, get_distribution(*two_gaussian_1), df_length, resample=False, used_patients=used_patients)
+# T2, used_patients = dataset_from_distribution(df, get_distribution(*two_gaussian_2), df_length, resample=False, used_patients=used_patients)
+# T6, used_patients = dataset_from_distribution(df, get_distribution(*two_gaussian_6), df_length, resample=False, used_patients=used_patients)
+# T5, used_patients = dataset_from_distribution(df, get_distribution(*two_gaussian_5), df_length, resample=False, used_patients=used_patients)
+# T3, used_patients = dataset_from_distribution(df, get_distribution(*two_gaussian_3), df_length, resample=False, used_patients=used_patients)
+# T4, used_patients = dataset_from_distribution(df, get_distribution(*two_gaussian_4), df_length, resample=False, used_patients=used_patients)
+#
+# #For all datasets, plot the age distribution
+# plot_age_distribution(T1, f'utils/plots/age_distribution{two_gaussian_1[0]}.pdf', two_gaussian_1[0])
+# plot_age_distribution(T2, f'utils/plots/age_distribution{two_gaussian_2[0]}.pdf', two_gaussian_2[0])
+# plot_age_distribution(T3, f'utils/plots/age_distribution{two_gaussian_3[0]}.pdf', two_gaussian_3[0])
+# plot_age_distribution(T4, f'utils/plots/age_distribution{two_gaussian_4[0]}.pdf', two_gaussian_4[0])
+# plot_age_distribution(T5, f'utils/plots/age_distribution{two_gaussian_5[0]}.pdf', two_gaussian_5[0])
+# plot_age_distribution(T6, f'utils/plots/age_distribution{two_gaussian_6[0]}.pdf', two_gaussian_6[0])
 
 
 # print(retrieve_patients_with_closest_age(df, 22.70).head())
