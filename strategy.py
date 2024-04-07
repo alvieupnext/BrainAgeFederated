@@ -8,10 +8,8 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 from flwr.common import FitIns,MetricsAggregationFn, NDArrays, Parameters, Scalar
 
-from centralized import load_model, DEVICE
+from centralized import load_model
 from client import set_parameters
-
-net = load_model().to(DEVICE)
 
 #New aggregate_fit method
 def aggregate_fit(
@@ -32,7 +30,7 @@ def aggregate_fit(
 
     # Convert `Parameters` to `List[np.ndarray]`
     aggregated_ndarrays: List[np.ndarray] = fl.common.parameters_to_ndarrays(aggregated_parameters)
-
+    net = load_model()
     # Set the parameters of the model
     set_parameters(net, aggregated_ndarrays)
 
