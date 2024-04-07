@@ -2,7 +2,7 @@ import argparse
 
 from flwr.server.client_proxy import ClientProxy
 
-from centralized import load_model, DEVICE, get_test_loader, group_datasets, get_train_valid_loader, validate
+from centralized import load_model, get_test_loader, group_datasets, get_train_valid_loader, validate
 from client import FlowerClient, set_parameters, FedProxClient
 import pandas as pd
 import flwr as fl
@@ -33,12 +33,12 @@ from utils import dwood
 # testloader = get_test_loader(testdf, batch_size=4, dataset_scale=1)
 
 #Generate a client function which takes the project name and returns a function that creates a FlowerClient
-def gen_client_fn(project_name, strategy, save_dir, dfs, kcrossval):
+def gen_client_fn(project_name, strategy, save_dir, dfs, kcrossval, device):
   def client_fn(cid: str) -> FlowerClient:
     """Create a Flower client representing a single organization."""
 
     # Load model
-    net = load_model().to(DEVICE)
+    net = load_model().to(device)
     names = list(dfs.keys())
 
     # Dataloaders is a dict with name as key and a tuple with trainloader and valloader as value
@@ -47,18 +47,18 @@ def gen_client_fn(project_name, strategy, save_dir, dfs, kcrossval):
 
     if strategy == 'FedAvg':
       # Create a  single Flower client representing a single organization
-      return FlowerClient(net, project_name, save_dir, dataset, cid, name=name, kcrossval=kcrossval)
+      return FlowerClient(net, project_name, save_dir, dataset, cid, name=name, kcrossval=kcrossval, device=device)
     elif strategy == 'FedProx':
       # Create a  single FedProx representing a single organization
-      return FedProxClient(net, project_name, save_dir, dataset, cid, name=name, kcrossval=kcrossval)
+      return FedProxClient(net, project_name, save_dir, dataset, cid, name=name, kcrossval=kcrossval, device=device)
   return client_fn
 
 #Evaluation server side using test csv
-def get_evaluate_fn(model, save_dir, testloader):
+def get_evaluate_fn(model, save_dir, testloader, device):
   def evaluate(server_round: int, parameters: NDArrays, config: Dict[str, Scalar]) -> Optional[Tuple[float, Dict[str, Scalar]]]:
     print("Evaluating round", server_round)
     set_parameters(model, parameters)
-    val_losses, _, _, _, _, val_mae = validate(model, testloader)
+    val_losses, _, _, _, _, val_mae = validate(model, testloader, device)
     #Write the losses to a file in save_dir
     with open(save_dir + 'centralized_losses.txt', 'a') as f:
       f.write(f"{server_round},{val_losses}\n")
@@ -127,13 +127,13 @@ def generate_client_resources(num_cpus: int, num_gpus: float, clients: int):
 #   return FedProxClient(net, project_name, trainloader, valloader, cid, name)
 
 # A function that returns a strategy and client_fn based on the strategy and save_dir
-def get_config(strategy, save_dir, net, parameters, epochs, patience, dfs, testloader, kcrossval):
-  client_fn = gen_client_fn(project_name, strategy, save_dir, dfs, kcrossval)
+def get_config(strategy, save_dir, net, parameters, epochs, patience, dfs, testloader, kcrossval, device):
+  client_fn = gen_client_fn(project_name, strategy, save_dir, dfs, kcrossval, device)
   if strategy == 'FedAvg':
     return SaveFedAvg(
       fraction_fit=1.0,  # Sample 100% of available clients for training
       fraction_evaluate=0.5,  # Sample 50% of available clients for evaluation
-      evaluate_fn=get_evaluate_fn(net, save_dir, testloader),
+      evaluate_fn=get_evaluate_fn(net, save_dir, testloader, device),
       on_fit_config_fn=generate_fit_config(epochs, patience),
       initial_parameters=parameters,
       save_dir=save_dir,
@@ -142,7 +142,7 @@ def get_config(strategy, save_dir, net, parameters, epochs, patience, dfs, testl
     return SaveFedProx(
       fraction_fit=1.0,  # Sample 100% of available clients for training
       fraction_evaluate=0.5,  # Sample 50% of available clients for evaluation
-      evaluate_fn=get_evaluate_fn(net, save_dir, testloader),
+      evaluate_fn=get_evaluate_fn(net, save_dir, testloader, device),
       on_fit_config_fn=generate_fit_config(epochs,patience),
       initial_parameters=parameters,
       proximal_mu=1.0,
@@ -172,7 +172,11 @@ if __name__ == "__main__":
   parser.set_defaults(server_rounds=5)
   parser.add_argument('--kcrossval', type=int, required=False)
   parser.set_defaults(kcrossval=10)
+  parser.add_argument('--cpu', type=bool, required=False)
+  parser.set_defaults(cpu=False)
   args = parser.parse_args()
+  DEVICE = torch.device("cuda" if torch.cuda.is_available() and not args.cpu else "cpu")
+  num_gpus = 1.0 if DEVICE.type == "cuda" else 0.0
   #For the mode, if no seed provided, mode is RW
   if args.seed is None:
     mode = 'RW'
@@ -199,26 +203,25 @@ if __name__ == "__main__":
   parameters = fl.common.ndarrays_to_parameters(weights)
 
   # # Load patients_dataset_6326_train.csv
-  df = pd.read_csv('patients_dataset_9573_train.csv')
+  train_df = pd.read_csv('patients_dataset_9573_train.csv')
   # If split is distribution, get the right distributions
   distributions = distribution_profiles.get(args.distribution)
   #Group the dataframe in different dataframes
-  dfs = group_datasets(df, mode=args.split, distributions=distributions)
+  dfs = group_datasets(train_df, mode=args.split, distributions=distributions)
   # # #Remove PDD from the dictionary
   # dataloaders = {name: get_train_valid_loader(df, batch_size=3, random_seed=10, dataset_scale=1) for name, df in dfs.items()}
-  testdf = pd.read_csv('patients_dataset_6326_test.csv')
+  testdf = pd.read_csv('patients_dataset_9573_test.csv')
   testloader = get_test_loader(testdf, batch_size=4, dataset_scale=1)
 
   #get the client_fn and strategy from the arguments
-  strategy, client_fn = get_config(args.strategy, save_dir, net, parameters, args.epochs, args.patience, dfs, testloader, args.kcrossval)
+  strategy, client_fn = get_config(args.strategy, save_dir, net, parameters, args.epochs, args.patience, dfs, testloader, args.kcrossval, DEVICE)
 
   # If the repository does not exist, create it
   if not os.path.exists(save_dir):
     print(f"Creating directory {save_dir}...")
     os.makedirs(save_dir)
-
   #Cray-Z contains 24 CPU and 1 GPU
-  client_resources = generate_client_resources(24, 1, len(dfs))
+  client_resources = generate_client_resources(24, num_gpus, len(dfs))
 
   fl.simulation.start_simulation(
     client_fn=client_fn,
