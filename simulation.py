@@ -175,8 +175,8 @@ if __name__ == "__main__":
   parser.add_argument('--cpu', type=bool, required=False)
   parser.set_defaults(cpu=False)
   args = parser.parse_args()
-  DEVICE = torch.device("cuda" if torch.cuda.is_available() and not args.cpu else "cpu")
-  num_gpus = 1.0 if DEVICE.type == "cuda" else 0.0
+  device = torch.device("cuda" if torch.cuda.is_available() and not args.cpu else "cpu")
+  num_gpus = 1.0 if device.type == "cuda" else 0.0
   #For the mode, if no seed provided, mode is RW
   if args.seed is None:
     mode = 'RW'
@@ -196,7 +196,7 @@ if __name__ == "__main__":
   #Load the model
   #If a seed is defined, use it
   dwood_seed = dwood + f'seed_{args.seed}.pt'
-  net = load_model(dwood_seed).to(DEVICE) if mode == 'DWood' else load_model().to(DEVICE)
+  net = load_model(dwood_seed).to(device) if mode == 'DWood' else load_model().to(device)
 
   weights = [val.cpu().numpy() for _, val in net.state_dict().items()]
 
@@ -214,7 +214,7 @@ if __name__ == "__main__":
   testloader = get_test_loader(testdf, batch_size=4, dataset_scale=1)
 
   #get the client_fn and strategy from the arguments
-  strategy, client_fn = get_config(args.strategy, save_dir, net, parameters, args.epochs, args.patience, dfs, testloader, args.kcrossval, DEVICE)
+  strategy, client_fn = get_config(args.strategy, save_dir, net, parameters, args.epochs, args.patience, dfs, testloader, args.kcrossval, device)
 
   # If the repository does not exist, create it
   if not os.path.exists(save_dir):
