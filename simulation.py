@@ -176,7 +176,7 @@ if __name__ == "__main__":
   parser.add_argument('--cpu', type=bool, required=False)
   parser.set_defaults(cpu=False)
   parser.add_argument('--nodes', type=int, required=False)
-  parser.set_defaults(nodes=6)
+  parser.set_defaults(nodes=3)
   args = parser.parse_args()
   device = torch.device("cuda" if torch.cuda.is_available() and not args.cpu else "cpu")
   num_gpus = 1.0 if device.type == "cuda" else 0.0
