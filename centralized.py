@@ -459,6 +459,7 @@ def run_model(project_name, epochs=10, kcrossval=10, seed=None):
   net = load_model(seed).to(DEVICE)
   init_loss, _, _, _, _, _ = validate(net, testloader)
   for k in range(kcrossval):
+    print(f'Running fold {k + 1}...')
     trainloader = trainloaders[k]
     valloader = valloaders[k]
     model_save_path = save_dir  + project_name + datetime.datetime.now().strftime(f'_fold_{k}_%d-%m-%y-%H_%M.pt')
@@ -474,6 +475,7 @@ def run_model(project_name, epochs=10, kcrossval=10, seed=None):
       _, best_loss, save_path = train(net, trainloader, valloader, 1, model_save_path, losses_save_path, best_loss=best_loss, current_epoch=epoch)
       # Validate the model using the test data
       test_loss, _, _, _, _, val_mae = validate(net, testloader)
+      print(f'Epoch {epoch + 1} - test loss: {test_loss:.2f}, val mae: {val_mae:.2f}')
       epoch_test_loss.append(test_loss)
     #Append the epoch test loss to the fold losses
     fold_losses.append(epoch_test_loss)
@@ -509,7 +511,7 @@ def test_model(project_name, test_loader, state_path=None, csv_save=True, device
 
 #A function that generates centralized losses for a project_name
 #Used to fix the centralized losses when the wrong test dataset is used
-def test_federated_models(project_name, test_loader, device):
+def test_federated_models(project_name, test_loader, device=DEVICE):
   # Go to the folder containing all federated models
   model_path = os.path.join('./utils', 'models', project_name)
 
@@ -520,17 +522,17 @@ def test_federated_models(project_name, test_loader, device):
 
   # In this folder, obtain all pt files that start with federated_model
   pt_files = [f for f in os.listdir(model_path) if f.startswith('federated_model')]
-  # Sort the pt files alphabetically
-  pt_files.sort()
+  # Sort the pt files by creation date (oldest first)
+  pt_files.sort(key=lambda x: os.path.getctime(os.path.join(model_path, x)))
   print(pt_files)
 
   centralized_losses_path = os.path.join(model_path, 'centralized_losses.txt')
-  first_loss = 0.0
-  #Get the first line of the file which is a format of 0,loss
-  with open(centralized_losses_path, 'r') as f:
-    first_line = f.readline()
-    #Get the first loss
-    first_loss = float(first_line.split(',')[1])
+  first_loss, _, _, _, _, _ = validate(load_model(), test_loader, device)
+  # #Get the first line of the file which is a format of 0,loss
+  # with open(centralized_losses_path, 'r') as f:
+  #   first_line = f.readline()
+  #   #Get the first loss
+  #   first_loss = float(first_line.split(',')[1])
   if os.path.exists(centralized_losses_path):
     # Append timestamp to the old file name
     timestamp = datetime.datetime.now().strftime('%d-%m-%y-%H_%M')
@@ -553,17 +555,21 @@ def test_federated_models(project_name, test_loader, device):
 
 
 
-
+# ./FedProx_DWood_Distribution_Gaussian_seed_2_3_Node
+# ./FedProx_RW_Distribution_Original_3_Node
+# ./FedProx_DWood_Distribution_Original_seed_2_3_Node
+# ./FedProx_RW_Distribution_Gaussian_3_Node
+#DONE
 
 
 if __name__ == '__main__':
   # split_save_datasets('patients_dataset_9573.csv')
   # dwood_seed_2 = dwood + 'seed_2.pt'
-  # run_model('centralized_DWood_seed_2_10_fold_kcrossval', epochs=20, kcrossval=10, seed=dwood_seed_2)
-  # run_model('centralized_RW_10_fold_kcrossval', epochs=20, kcrossval=10)
-  df = pd.read_csv('patients_dataset_6326_test_downsized_1.csv')
-  test_loader = get_test_loader(df, batch_size=4)
-  test_federated_models('FedAvg_RW_Distribution_Gaussian_cputest2', test_loader, device='cpu')
+  run_model('centralized_DWood_seed_2_10_fold_kcrossval', epochs=20, kcrossval=10, seed=dwood_seed_2)
+  # run_model('centralized_RW_10_fold_kcrossval_test', epochs=20, kcrossval=10)
+  # test_df = pd.read_csv('patients_dataset_9573_test.csv')
+  # test_loader = get_test_loader(test_df, batch_size=4)
+  # test_federated_models('FedProx_RW_Distribution_Gaussian_3_Node', test_loader)
 
 
 
