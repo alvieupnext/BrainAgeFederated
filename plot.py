@@ -227,7 +227,7 @@ def plot_losses(projects_losses, split='Dataset', mode='DWood', alias=None):
     plt.show()
 
 
-def plot_client_losses(client_losses, client_number=12, split='Dataset', mode='DWood', alias='', kcrossval=False):
+def plot_client_losses(client_losses, client_number=12, split='Dataset', mode='DWood', alias='', kcrossval=False, runs=10):
   # Set the visual theme of the plots with Seaborn
   sns.set(style="whitegrid")
 
@@ -255,8 +255,8 @@ def plot_client_losses(client_losses, client_number=12, split='Dataset', mode='D
       sns.lineplot(x=x_ticks[idx], y=training_losses[idx], ax=ax, label=f'{project_name} Train Loss', marker='o')
       if kcrossval:
         #Generate the 95% confidence interval
-        lower_bound = np.array(training_losses[idx]) - 1.96 * np.array(val_loss_or_std[idx]) / (len(val_loss_or_std[idx]) ** 0.5)
-        upper_bound = np.array(training_losses[idx]) + 1.96 * np.array(val_loss_or_std[idx]) / (len(val_loss_or_std[idx]) ** 0.5)
+        lower_bound = np.array(training_losses[idx]) - 1.96 * np.array(val_loss_or_std[idx]) / runs ** 0.5
+        upper_bound = np.array(training_losses[idx]) + 1.96 * np.array(val_loss_or_std[idx]) / runs ** 0.5
         #Plot the 95% confidence interval, use fill between
         ax.fill_between(x_ticks[idx], lower_bound, upper_bound, alpha=0.3)
       else:
