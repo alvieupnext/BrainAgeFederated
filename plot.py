@@ -118,15 +118,6 @@ def merge_x_ticks(xticks_array):
   #Return the largest array in the list
   return max(xticks_array, key=len)
 
-
-
-
-strategies = ['FedAvg', 'FedProx']
-model = ['DWood']
-seeds = [2]
-# data = ['Dataset']
-data = ['Distribution_Gaussian', 'Distribution_Original']
-alias = '10_fold_kcrossval'
 #
 # # For every strategy, generate a model and for every DWood seed
 def get_results(strategies, model, seeds, data, alias=None, kcrossval=False):
@@ -134,8 +125,8 @@ def get_results(strategies, model, seeds, data, alias=None, kcrossval=False):
   client_losses = {}
   for m in model:
     centralized_name = f'centralized_{m}'
-    if alias:
-      centralized_name += f'_{alias}'
+    # if alias:
+    #   centralized_name += f'_{alias}'
     loss = get_centralized_losses(centralized_name, std=True)
     project_losses[centralized_name] = loss
     for s in strategies:
@@ -143,6 +134,7 @@ def get_results(strategies, model, seeds, data, alias=None, kcrossval=False):
         strategy_data_name = f'{s}_{m}'
         # Generate the project name
         project_name = f'{strategy_data_name}_{d}'
+        print(project_name)
         #Make an array of the project names
         project_names = []
         # For every seed, add the seed to the project name if the mode is DWood
@@ -155,6 +147,7 @@ def get_results(strategies, model, seeds, data, alias=None, kcrossval=False):
           if alias:
             project_name += f'_{alias}'
           project_names.append(project_name)
+        print(project_names)
         # Get the losses for the project
         losses = [get_centralized_losses(p) for p in project_names]
         #Get the mean loss
@@ -262,8 +255,8 @@ def plot_client_losses(client_losses, client_number=12, split='Dataset', mode='D
       sns.lineplot(x=x_ticks[idx], y=training_losses[idx], ax=ax, label=f'{project_name} Train Loss', marker='o')
       if kcrossval:
         #Generate the 95% confidence interval
-        lower_bound = np.array(training_losses[idx]) - 1.96 * np.array(val_loss_or_std[idx])
-        upper_bound = np.array(training_losses[idx]) + 1.96 * np.array(val_loss_or_std[idx])
+        lower_bound = np.array(training_losses[idx]) - 1.96 * np.array(val_loss_or_std[idx]) / (len(val_loss_or_std[idx]) ** 0.5)
+        upper_bound = np.array(training_losses[idx]) + 1.96 * np.array(val_loss_or_std[idx]) / (len(val_loss_or_std[idx]) ** 0.5)
         #Plot the 95% confidence interval, use fill between
         ax.fill_between(x_ticks[idx], lower_bound, upper_bound, alpha=0.3)
       else:
@@ -306,23 +299,10 @@ def plot_client_losses(client_losses, client_number=12, split='Dataset', mode='D
 if not os.path.exists(plot_folder):
   os.makedirs(plot_folder)
 
-# project_losses, client_losses = get_results(strategies, model, seeds, data, alias=None)
-# # Print the results
-# print(project_losses)
-# print(client_losses)
-
 # Get the results
-# project_losses, client_losses = get_results(strategies, model, seeds, data, alias=alias, kcrossval=True)
-# print(project_losses.keys())
-# print(client_losses.keys())
-# # Print the results
-# # print(project_losses)
-# # print(client_losses)
-#
-# plot_losses(project_losses, split='Distribution', mode='DWood', alias=alias)
-# plot_client_losses(client_losses, 3, split='Distribution', mode='DWood', alias=alias, kcrossval=True)
 
-# # Plot the losses
+
+# Plot the losses
 # plot_losses(project_losses, split='Distribution', mode='DWood')
 # plot_client_losses(client_losses,4, split='Distribution', mode='DWood')
 #
@@ -388,11 +368,19 @@ def plot_parent_dataset_distribution(data, save_path=None):
     plt.show()
 
 if __name__ == "__main__":
-    # Read the dataset
-    dataset = pd.read_csv('patients_dataset_6326.csv')
-    # Plot the age distribution
-    # plot_age_distribution(dataset)
-    # Plot the dataset_name distribution
-    plot_dataset_distribution(dataset)
-    # Plot the parent dataset distribution
-    plot_parent_dataset_distribution(dataset)
+  strategies = ['FedAvg', 'FedProx']
+  model = ['DWood']
+  seeds = [2]
+  # data = ['Dataset']
+  data = ['Distribution_Gaussian', 'Distribution_Original']
+  alias = '3_Node'
+  project_losses, client_losses = get_results(strategies, model, seeds, data, alias=alias, kcrossval=True)
+  # print(project_losses.keys())
+  # print(client_losses.keys())
+  # # Print the results
+  # # print(project_losses)
+  # # print(client_losses)
+  # print(project_losses.values())
+  # print(client_losses.values())
+  plot_losses(project_losses, split='Distribution', mode='DWood', alias=alias)
+  plot_client_losses(client_losses, 3, split='Distribution', mode='DWood', alias=alias, kcrossval=True)
