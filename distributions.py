@@ -364,12 +364,12 @@ distribution_profiles_6_nodes = {'Original': {1: original, 2: original, 3: origi
                                    'Senior1': gaussian_old,
                                    'Senior2': gaussian_old},
                       'Mixture': {1: mixture, 2: mixture, 3: mixture, 4: mixture, 5: mixture, 6: mixture},
-                      'Transition': {'Junior/Senior (80%/20%) 1': get_distribution(*two_gaussian_1),
-                                    'Junior/Senior (80%/20%) 2': get_distribution(*two_gaussian_2),
-                                     'Junior/Senior (20%/80%)': get_distribution(*two_gaussian_6),
-                                      'Junior/Senior (40%/60%)': get_distribution(*two_gaussian_5),
-                                      'Junior/Senior (60%/40%) 1': get_distribution(*two_gaussian_3),
-                                      'Junior/Senior (60%/40%) 2': get_distribution(*two_gaussian_4)
+                      'Transition': {'Junior-Senior(80%-20%)1': get_distribution(*two_gaussian_1),
+                                    'Junior-Senior(80%-20%)2': get_distribution(*two_gaussian_2),
+                                     'Junior-Senior(20%-80%)': get_distribution(*two_gaussian_6),
+                                      'Junior-Senior(40%-60%)': get_distribution(*two_gaussian_5),
+                                      'Junior-Senior(60%-40%)1': get_distribution(*two_gaussian_3),
+                                      'Junior-Senior(60%-40%)2': get_distribution(*two_gaussian_4)
                                      },
                          }
 
