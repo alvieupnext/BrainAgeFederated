@@ -241,7 +241,7 @@ def dataset_from_distribution(df, distribution, n, resample=False, used_patients
 #However, the dataframes produced from this function are more likely to be statistically accurate
 #As such, we use this function for the original, Gaussian and mixture distributions
 #Distributions = name -> distribution object
-def dataframes_by_distribution_full_sample(df, distributions):
+def dataframes_from_distribution_full_sample(df, distributions):
     #For each distribution, create a dataset
     num_clients = len(distributions)
     patients_per_client = len(df) // num_clients
@@ -262,7 +262,7 @@ def dataframes_by_distribution_full_sample(df, distributions):
 #due to how the current sampling is implemented
 #As such this function is only used for the transition distributions, as they are a mixture of two distributions
 #Distributions = name -> distribution object
-def dataframes_by_distribution_fair_sample(df, distributions):
+def dataframes_from_distribution_fair_sample(df, distributions):
     num_clients = len(distributions)
     # patients_per_client = len(df) // num_clients
     #For each distribution, create a dataset
@@ -298,10 +298,12 @@ def dataframes_by_distribution_fair_sample(df, distributions):
         result[distribution_names[i]] = datasets[i]
     return result
 
-def dataframes_by_distribution(df, distributions, profile):
-    if profile == 'Transition':
-        return dataframes_by_distribution_fair_sample(df, distributions)
-    return dataframes_by_distribution_full_sample(df, distributions)
+def dataframes_from_distribution(df, distribution_profile, nodes):
+    distribution_profiles = distribution_profiles_6_nodes if nodes == 6 else distribution_profiles_3_nodes
+    distributions = distribution_profiles[distribution_profile]
+    if distribution_profile == 'Transition':
+        return dataframes_from_distribution_fair_sample(df, distributions)
+    return dataframes_from_distribution_full_sample(df, distributions)
 
 
 
@@ -351,10 +353,10 @@ mixture = get_distribution(*mixture_distribution)
 original = get_distribution(*original_distribution)
 
 #Create a dictionary with the datasets
-distribution_profiles = {'Original': {1: original, 2: original, 3: original},
+distribution_profiles_3_nodes = {'Original': {1: original, 2: original, 3: original},
                       'Gaussian': {'Junior1': gaussian_young, 'Junior2': gaussian_young, 'Senior': gaussian_old},
                       'Mixture': {1: mixture, 2: mixture, 3: mixture}
-                         }
+                                 }
 
 distribution_profiles_6_nodes = {'Original': {1: original, 2: original, 3: original, 4: original, 5: original, 6: original},
                       'Gaussian': {'Junior1': gaussian_young, 'Junior2': gaussian_young,

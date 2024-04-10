@@ -12,9 +12,10 @@ import os
 import numpy as np
 import torch
 
-from distributions import distribution_profiles
+from distributions import distribution_profiles_3_nodes
 from strategy import SaveFedAvg, SaveFedProx
-from utils import dwood
+from utils import dwood, training_dataset, testing_dataset
+
 
 # # Load patients_dataset_6326_train.csv
 # df = pd.read_csv('patients_dataset_6326_train.csv')
@@ -174,6 +175,8 @@ if __name__ == "__main__":
   parser.set_defaults(kcrossval=10)
   parser.add_argument('--cpu', type=bool, required=False)
   parser.set_defaults(cpu=False)
+  parser.add_argument('--nodes', type=int, required=False)
+  parser.set_defaults(nodes=6)
   args = parser.parse_args()
   device = torch.device("cuda" if torch.cuda.is_available() and not args.cpu else "cpu")
   num_gpus = 1.0 if device.type == "cuda" else 0.0
@@ -203,14 +206,12 @@ if __name__ == "__main__":
   parameters = fl.common.ndarrays_to_parameters(weights)
 
   # # Load patients_dataset_6326_train.csv
-  train_df = pd.read_csv('patients_dataset_9573_train.csv')
-  # If split is distribution, get the right distributions
-  distributions = distribution_profiles.get(args.distribution)
+  train_df = pd.read_csv(training_dataset)
   #Group the dataframe in different dataframes
-  dfs = group_datasets(train_df, mode=args.split, distributions=distributions)
+  dfs = group_datasets(train_df, mode=args.split, distribution=args.distribution, nodes=args.nodes)
   # # #Remove PDD from the dictionary
   # dataloaders = {name: get_train_valid_loader(df, batch_size=3, random_seed=10, dataset_scale=1) for name, df in dfs.items()}
-  testdf = pd.read_csv('patients_dataset_9573_test.csv')
+  testdf = pd.read_csv(testing_dataset)
   testloader = get_test_loader(testdf, batch_size=4, dataset_scale=1)
 
   #get the client_fn and strategy from the arguments

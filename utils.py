@@ -13,6 +13,9 @@ andrei = './utils/models/AndSilva/'
 #Plot folder
 plot_folder = './utils/plots/'
 
+training_dataset = 'patients_dataset_9573_train.csv'
+testing_dataset = 'patients_dataset_9573_test.csv'
+
 
 def save_csv_prediction(outdir, project_name, true_ages, pred_ages, ids_sub):
   outname = project_name + "_brain_age_output.csv"

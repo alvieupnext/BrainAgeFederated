@@ -20,12 +20,14 @@ from monai.transforms import (
     LoadImage,
     RandFlip,
 )
+from distributions import distribution_profiles_3_nodes, distribution_profiles_6_nodes, dataframes_from_distribution
 
 from scipy.stats import beta
 import pandas as pd
 
 from distributions import dataset_from_distribution
-from utils import dwood, save_csv_prediction, generate_project_name, get_pt_file_path, load_andrei_model_paths
+from utils import dwood, save_csv_prediction, generate_project_name, get_pt_file_path, load_andrei_model_paths, \
+  training_dataset
 
 warnings.filterwarnings("ignore")
 
@@ -315,10 +317,10 @@ def get_test_loader(df, batch_size, dataset_scale=1.0):
   return test_loader
 
 #Function for splitting datasets
-def group_datasets(df, mode='dataset', turbulence=0.0, distributions=None):
+def group_datasets(df, mode='dataset', turbulence=0.0, distribution=None, nodes=6):
   #If dataset mode, split the dataframe by the dataset column
-  if distributions is None:
-    distributions = {}
+  if distribution is None:
+    distribution = {}
   if mode == 'dataset':
     # Split the dataset by the dataset column
     groups = df.groupby('dataset')
@@ -326,15 +328,7 @@ def group_datasets(df, mode='dataset', turbulence=0.0, distributions=None):
     return {name: group.reset_index(drop=True, inplace=False) for name, group in groups}
   # Number mode, split uniformly in n dataframes
   elif mode == 'distribution':
-    num_clients = len(distributions)
-    patients_per_client = len(df) // num_clients
-    result = {}
-    used_patients = set()
-    #TODO CHANGE TO NEW FUNCTION
-    for name, distribution in distributions.items():
-      dataset, used_patients = dataset_from_distribution(df, distribution, patients_per_client, resample=False, used_patients=used_patients)
-      result[name] = dataset
-    return result
+    return dataframes_from_distribution(df, distribution, nodes)
   else:
     try:
       n = int(mode)
@@ -440,19 +434,18 @@ def load_model(model_path=None):
     state_dict = convert_state_dict(model_path)
     net.load_state_dict(state_dict, strict=True)
   return net
-def run_model(project_name, epochs=10, kcrossval=10, seed=None):
+def run_model(project_name, epochs=10, kcrossval=10, seed=None, test_dataset=None):
   save_dir = './utils/models/' + project_name + "/"
   #If save directory does not exist, create it
   if not os.path.exists(save_dir):
     os.makedirs(save_dir)
     print("new directory created for " + project_name)
-  csv_file = 'patients_dataset_9573_train.csv'
   #Print the device we are currently working on
   print(DEVICE)
-  df = pd.read_csv(csv_file)
-  trainloaders, valloaders = get_train_valid_loader(df, batch_size=3, random_seed=10, aug='none', kcrossval=kcrossval, icross=-1)
+  train_df = pd.read_csv(training_dataset)
+  trainloaders, valloaders = get_train_valid_loader(train_df, batch_size=3, random_seed=10, aug='none', kcrossval=kcrossval, icross=-1)
   # Load test data
-  testdf = pd.read_csv('patients_dataset_9573_test.csv')
+  testdf = pd.read_csv(test_dataset)
   testloader = get_test_loader(testdf, batch_size=4)
   fold_losses = []
   # dwood_seed_2 = dwood + 'seed_2.pt'
