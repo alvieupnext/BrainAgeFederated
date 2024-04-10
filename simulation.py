@@ -98,7 +98,7 @@ def generate_fit_config(epochs: int, patience:int):
   return fit_config
 
 def generate_client_resources(num_cpus: int, num_gpus: float, clients: int):
-  return {"num_cpus": num_cpus // clients, "num_gpus": num_gpus / clients}
+  return {"num_cpus": num_cpus // clients, "num_gpus": max(num_gpus / clients, 1/3)}
 
 # Specify the resources each of your clients need. By default, each
 # client will be allocated 1x CPU and 0x GPUs
