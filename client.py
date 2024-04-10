@@ -67,7 +67,7 @@ class FlowerClient(fl.client.NumPyClient):
       #Create a save dir to a file called age_distribution.pdf
       if not os.path.exists(client_save_dir):
           os.makedirs(client_save_dir)
-      plot_save_dir = client_save_dir + "age_distribution.pdf"
+      plot_save_dir = client_save_dir + f"age_distribution_{friendly_name}.pdf"
       plot_age_distribution(self.dataset, plot_save_dir, friendly_name)
 
     def get_parameters(self, config):
