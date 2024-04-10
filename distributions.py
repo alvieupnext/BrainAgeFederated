@@ -151,7 +151,7 @@ def original_distribution_config(df):
 
 def two_gaussian_config(mean, cov, mean2, cov2, p):
     percentage = int(p * 100)
-    return f'TwoGaussian Young {percentage}%, Mature {100 - percentage}%', {'mean': mean, 'cov': cov, 'mean2': mean2, 'cov2': cov2, 'p': p}
+    return f'TwoGaussian Junior {percentage}%, Senior {100 - percentage}%', {'mean': mean, 'cov': cov, 'mean2': mean2, 'cov2': cov2, 'p': p}
 
 df = pd.read_csv('patients_dataset_9573.csv')
 
@@ -264,7 +264,7 @@ def dataframes_by_distribution_full_sample(df, distributions):
 #Distributions = name -> distribution object
 def dataframes_by_distribution_fair_sample(df, distributions):
     num_clients = len(distributions)
-    patients_per_client = len(df) // num_clients
+    # patients_per_client = len(df) // num_clients
     #For each distribution, create a dataset
     datasets = [pd.DataFrame(columns=df.columns) for _ in range(num_clients)]
     # Obtain the youngest and oldest ages
@@ -343,7 +343,7 @@ dataset = pd.read_csv('patients_dataset_9573.csv')
 df = dataset.drop(columns=['dataset', 'dataset_name'])
 
 #Split the dataframe into three dataframes, get the length of each dataframe
-df_length = len(df) // 6
+df_length = len(df) // 3
 
 gaussian_young = get_distribution(*normal_distribution1)
 gaussian_old = get_distribution(*normal_distribution3)
@@ -352,24 +352,42 @@ original = get_distribution(*original_distribution)
 
 #Create a dictionary with the datasets
 distribution_profiles = {'Original': {1: original, 2: original, 3: original},
-                      'Gaussian': {'Young1': gaussian_young, 'Young2': gaussian_young, 'Mature': gaussian_old},
+                      'Gaussian': {'Junior1': gaussian_young, 'Junior2': gaussian_young, 'Senior': gaussian_old},
                       'Mixture': {1: mixture, 2: mixture, 3: mixture}
                          }
 
 distribution_profiles_6_nodes = {'Original': {1: original, 2: original, 3: original, 4: original, 5: original, 6: original},
-                      'Gaussian': {'Young1': gaussian_young, 'Young2': gaussian_young,
-                                   'Young3': gaussian_young, 'Young4': gaussian_young,
-                                   'Mature1': gaussian_old,
-                                   'Mature2': gaussian_old},
+                      'Gaussian': {'Junior1': gaussian_young, 'Junior2': gaussian_young,
+                                   'Junior3': gaussian_young, 'Junior4': gaussian_young,
+                                   'Senior1': gaussian_old,
+                                   'Senior2': gaussian_old},
                       'Mixture': {1: mixture, 2: mixture, 3: mixture, 4: mixture, 5: mixture, 6: mixture},
-                      'Transition': {'Young/Mature (80%/20%) 1': get_distribution(*two_gaussian_1),
-                                    'Young/Mature (80%/20%) 2': get_distribution(*two_gaussian_2),
-                                     'Young/Mature (20%/80%)': get_distribution(*two_gaussian_6),
-                                      'Young/Mature (40%/60%)': get_distribution(*two_gaussian_5),
-                                      'Young/Mature (60%/40%) 1': get_distribution(*two_gaussian_3),
-                                      'Young/Mature (60%/40%) 2': get_distribution(*two_gaussian_4)
+                      'Transition': {'Junior/Senior (80%/20%) 1': get_distribution(*two_gaussian_1),
+                                    'Junior/Senior (80%/20%) 2': get_distribution(*two_gaussian_2),
+                                     'Junior/Senior (20%/80%)': get_distribution(*two_gaussian_6),
+                                      'Junior/Senior (40%/60%)': get_distribution(*two_gaussian_5),
+                                      'Junior/Senior (60%/40%) 1': get_distribution(*two_gaussian_3),
+                                      'Junior/Senior (60%/40%) 2': get_distribution(*two_gaussian_4)
                                      },
                          }
+
+if __name__ == '__main__':
+    G1, _ = dataset_from_distribution(df, get_distribution(*normal_distribution1), int(len(df) * 0.625))
+    # G2, _ = dataset_from_distribution(df, get_distribution(*normal_distribution2), df_length, resample=True)
+    G3, _ = dataset_from_distribution(df, get_distribution(*normal_distribution3), int(len(df) * 0.375))
+    G4, _ = dataset_from_distribution(df, get_distribution(*mixture_distribution), len(df))
+    # # # #For all datasets, plot the age distribution
+    plot_age_distribution(G1, 'utils/plots/age_distributionJunior.pdf', 'Junior')
+    # plot_age_distribution(G2, 'utils/plots/age_distributionYoungNoResample2.pdf','Young2')
+    plot_age_distribution(G3, 'utils/plots/age_distributionSenior.pdf', 'Senior')
+    plot_age_distribution(G4, 'utils/plots/age_distributionMixture.pdf', 'Mixture')
+    # mode = 'Gaussian'
+    # #Obtain the original 6 nodes distribution
+    # nodes = distribution_profiles_6_nodes[mode]
+    # datasets = dataframes_by_distribution(df, nodes, mode)
+    # for name, data in datasets.items():
+    #     plot_age_distribution(data, None, name)
+    # Create a general dictionary for the distributions
 
 # mode = 'Gaussian'
 # #Obtain the original 6 nodes distribution
@@ -377,17 +395,9 @@ distribution_profiles_6_nodes = {'Original': {1: original, 2: original, 3: origi
 # datasets = dataframes_by_distribution(df, nodes, mode)
 # for name, data in datasets.items():
 #     plot_age_distribution(data, None, name)
-#Create a general dictionary for the distributions
+#Create a general dictionary for the distributions\
 # used_patients = set()
-# G1, used_patients = dataset_from_distribution(df, get_distribution(*normal_distribution1), df_length, used_patients=used_patients)
-# G2, used_patients = dataset_from_distribution(df, get_distribution(*normal_distribution2), df_length, used_patients=used_patients)
-# G3, used_patients = dataset_from_distribution(df, get_distribution(*normal_distribution3), df_length, used_patients=used_patients)
-# G4 = dataset_from_distribution(df, get_distribution(*mixture_distribution), df_length)
-# # #For all datasets, plot the age distribution
-# plot_age_distribution(G1, 'utils/plots/age_distributionYoungNoResample.pdf', 'Young')
-# plot_age_distribution(G2, 'utils/plots/age_distributionYoungNoResample2.pdf','Young2')
-# plot_age_distribution(G3, 'utils/plots/age_distributionMature.pdf', 'Mature')
-# plot_age_distribution(G4, 'utils/plots/age_distributionMixture.pdf','Mixture')
+
 # used_patients = set()
 # T1, used_patients = dataset_from_distribution(df, get_distribution(*two_gaussian_1), df_length, resample=False, used_patients=used_patients)
 # T2, used_patients = dataset_from_distribution(df, get_distribution(*two_gaussian_2), df_length, resample=False, used_patients=used_patients)
