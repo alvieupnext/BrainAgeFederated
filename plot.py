@@ -109,7 +109,6 @@ def merge_client_names(client_names_array):
     elif client_names not in seen_client_names:
         final_client_names = [f'{client_name}/{final_client_name}' for client_name, final_client_name in zip(client_names, final_client_names)]
         seen_client_names.append(client_names)
-  print(final_client_names)
   return final_client_names
 
 def merge_x_ticks(xticks_array):
@@ -134,7 +133,6 @@ def get_results(strategies, model, seeds, data, alias=None, kcrossval=False):
         strategy_data_name = f'{s}_{m}'
         # Generate the project name
         project_name = f'{strategy_data_name}_{d}'
-        print(project_name)
         #Make an array of the project names
         project_names = []
         # For every seed, add the seed to the project name if the mode is DWood
@@ -147,7 +145,6 @@ def get_results(strategies, model, seeds, data, alias=None, kcrossval=False):
           if alias:
             project_name += f'_{alias}'
           project_names.append(project_name)
-        print(project_names)
         # Get the losses for the project
         losses = [get_centralized_losses(p) for p in project_names]
         #Get the mean loss
@@ -295,9 +292,111 @@ def plot_client_losses(client_losses, client_number=12, split='Dataset', mode='D
   # Display the plot
   plt.show()
 
+#A function that merges the client names, the training losses, the std losses and the x-ticks
+#It takes the client_losses dictionary as input
+def merge_client_losses(name, client_tuples):
+  #For each item in the client_losses dictionary, get the clients, training losses, val losses and x-ticks
+  clients, training_losses, val_losses, x_ticks = client_tuples
+  # Group the clients in the following manner:
+  # All nodes that end with a number belong in a group depending on what comes before the number
+  # Example: 1, 2, 3, 4, 5 and 6 should be grouped together
+  # Junior1, Junior2, Junior3, Junior4 should be grouped together
+  # Return the name of the group and the clients that belong to that group by index
+  # print(name)
+  #From the name, remove everything after the second underscore, including the second underscore
+  split = name.split('_')
+  name = split[0] + '_' + split[1]
+  groups = {}
+  for client in clients:
+    #Get the last character of the client
+    last_char = client[-1]
+    #If the last character is a number, remove the number and use the remaining string as the group name
+    if last_char.isdigit():
+      group_name = client[:-1]
+      #If the group name is empty, it is an Original client
+      if not group_name:
+        group_name = 'Original'
+    else:
+      group_name = client
+    #Add the name of the strategy to the group name
+    group_name = f'{name}_{group_name}'
+    if group_name not in groups:
+      groups[group_name] = []
+    groups[group_name].append(client)
+  #For each group, obtain the training losses, val/std losses and x-ticks of every member of the group
+  #Take the mean of the training losses and val/std losses
+  #Merge the x-ticks
+  client_losses = {}
+  for group_name, group_clients in groups.items():
+    group_training_losses = []
+    group_val_std_losses = []
+    group_x_ticks = []
+    for client in group_clients:
+      idx = clients.index(client)
+      #Sanity check, assert that the client is in the clients array
+      assert client == clients[idx]
+      group_training_losses.append(training_losses[idx])
+      group_val_std_losses.append(val_losses[idx])
+      group_x_ticks.append(x_ticks[idx])
+    group_training_losses = np.array(group_training_losses).mean(axis=0)
+    group_val_std_losses = np.array(group_val_std_losses).mean(axis=0)
+    group_x_ticks = merge_x_ticks(group_x_ticks)
+    #Add the group name and the training losses, val/std losses and x-ticks to the client_losses dictionary
+    client_losses[group_name] = (group_training_losses, group_val_std_losses, group_x_ticks)
+  #Return the client_losses dictionary
+  return client_losses
+
+def plot_merged_losses(client_losses, split='Dataset', mode='DWood', nodes=6, alias='', kcrossval=True):
+  #Make a plot with the seaborn style
+  sns.set(style="whitegrid")
+  #Everything will be plotted in a single figure
+  plt.figure(figsize=(10, 6))
+  #For every group in the client_losses dictionary, plot the training losses
+  for group_name, (training_losses, val_loss_or_std, x_ticks) in client_losses.items():
+    #Plot the training losses
+    sns.lineplot(x=x_ticks, y=training_losses, label=f'{group_name} Train Loss', marker='o')
+    if kcrossval:
+      #Generate the 95% confidence interval
+      lower_bound = np.array(training_losses) - 1.96 * np.array(val_loss_or_std) / 10 ** 0.5
+      upper_bound = np.array(training_losses) + 1.96 * np.array(val_loss_or_std) / 10 ** 0.5
+      #Plot the 95% confidence interval, use fill between
+      plt.fill_between(x_ticks, lower_bound, upper_bound, alpha=0.3)
+    else:
+      sns.lineplot(x=x_ticks, y=val_loss_or_std, label=f'{group_name} Val Loss', marker='s', linestyle=':')
+
+  #Give a friendly name to the mode RW -> Random Weights
+  if mode == 'RW':
+    verbose_mode = 'Random Weights'
+  else:
+    verbose_mode = mode
+  #Set the title of the plot
+  title = f'Individual Node Losses ({split}, {verbose_mode}, {nodes} nodes)'
+  #No alias is needed
+  #Set the title
+  plt.title(title, fontsize=16)
+  #Set the x and y labels
+  if kcrossval:
+    plt.xlabel('Server Round')
+  else:
+    plt.xlabel('Server/Epoch')
+  plt.ylabel('Loss')
+  #Display the legend
+  plt.legend()
+  #Save the plot in the plot folder
+  file_name = f'Individual_Node_Losses_{split}_{mode}_{nodes}_nodes'
+  #Save the plot
+  path = os.path.join(plot_folder, f'{file_name}.pdf')
+  plt.savefig(path, format='pdf', dpi=300, bbox_inches='tight')
+  #Show the plot
+  plt.show()
+
+
+
 # #If the plot folder does not exist, create it
 if not os.path.exists(plot_folder):
   os.makedirs(plot_folder)
+
+
 
 # Get the results
 
@@ -372,9 +471,17 @@ if __name__ == "__main__":
   model = ['DWood']
   seeds = [2]
   # data = ['Dataset']
-  data = ['Distribution_Gaussian', 'Distribution_Original']
-  alias = '3_Node'
+  data = ['Distribution_Gaussian', 'Distribution_Original', 'Distribution_Transition']
+  nodes = 6
+  alias = f'{nodes}_Node'
   project_losses, client_losses = get_results(strategies, model, seeds, data, alias=alias, kcrossval=True)
+  all_merged_client_losses = {}
+  for project_name, client_tuples in client_losses.items():
+    merged_client_losses = merge_client_losses(project_name, client_tuples)
+    #Add the items of the merged_client_losses to the all_merged_client_losses dictionary
+    all_merged_client_losses.update(merged_client_losses)
+  print(all_merged_client_losses.keys())
+  plot_merged_losses(all_merged_client_losses, split='Distribution', mode=model[0], nodes=nodes, alias=alias, kcrossval=True)
   # print(project_losses.keys())
   # print(client_losses.keys())
   # # Print the results
@@ -382,5 +489,5 @@ if __name__ == "__main__":
   # # print(client_losses)
   # print(project_losses.values())
   # print(client_losses.values())
-  plot_losses(project_losses, split='Distribution', mode='DWood', alias=alias)
-  plot_client_losses(client_losses, 3, split='Distribution', mode='DWood', alias=alias, kcrossval=True)
+  # plot_losses(project_losses, split='Distribution', mode=model[0], alias=alias)
+  # plot_client_losses(client_losses, nodes, split='Distribution', mode=model[0], alias=alias, kcrossval=True)
