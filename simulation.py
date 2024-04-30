@@ -13,25 +13,10 @@ import numpy as np
 import torch
 
 from distributions import distribution_profiles_3_nodes
+from plot import plot_multiple_age_distributions
 from strategy import SaveFedAvg, SaveFedProx
-from utils import dwood, training_dataset, testing_dataset
+from utils import dwood, training_dataset, testing_dataset, plot_folder
 
-
-# # Load patients_dataset_6326_train.csv
-# df = pd.read_csv('patients_dataset_6326_train.csv')
-# #Group the dataframe in different dataframes by dataset attribute
-# dfs = group_datasets(df, mode='dataset')
-# # #Remove PDD from the dictionary
-# # dfs.pop('PDD')
-# dataloaders = {name: get_train_valid_loader(df, batch_size=3, random_seed=10, dataset_scale=1) for name, df in dfs.items()}
-# names = list(dataloaders.keys())
-# print(names)
-# print(dataloaders)
-# # #Print the dataframe from Other and from PDD
-# # print(dfs.get('PDD'))
-# print("Loaded test data")
-# testdf = pd.read_csv('patients_dataset_6326_test.csv')
-# testloader = get_test_loader(testdf, batch_size=4, dataset_scale=1)
 
 #Generate a client function which takes the project name and returns a function that creates a FlowerClient
 def gen_client_fn(project_name, strategy, save_dir, dfs, kcrossval, device):
@@ -209,6 +194,11 @@ if __name__ == "__main__":
   train_df = pd.read_csv(training_dataset)
   #Group the dataframe in different dataframes
   dfs = group_datasets(train_df, mode=args.split, distribution=args.distribution, nodes=args.nodes)
+
+  age_dist_name = f'{args.split}_{args.distribution}'
+
+  save_path = os.path.join(plot_folder, age_dist_name)
+  plot_multiple_age_distributions(dfs, args.distribution, save_path)
   # # #Remove PDD from the dictionary
   # dataloaders = {name: get_train_valid_loader(df, batch_size=3, random_seed=10, dataset_scale=1) for name, df in dfs.items()}
   testdf = pd.read_csv(testing_dataset)
@@ -222,7 +212,8 @@ if __name__ == "__main__":
     print(f"Creating directory {save_dir}...")
     os.makedirs(save_dir)
   #Cray-Z contains 24 CPU and 1 GPU
-  client_resources = generate_client_resources(24, num_gpus, len(dfs))
+  #Use 3 clients since we cannot parallelize the training to 6 nodes
+  client_resources = generate_client_resources(24, num_gpus, min(len(dfs), 3))
 
   fl.simulation.start_simulation(
     client_fn=client_fn,
