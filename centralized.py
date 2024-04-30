@@ -504,6 +504,7 @@ def test_model(project_name, test_loader, state_path=None, csv_save=True, device
 
 #A function that generates centralized losses for a project_name
 #Used to fix the centralized losses when the wrong test dataset is used
+#Extending to also save the MAE and save predictions of the final model
 def test_federated_models(project_name, test_loader, device=DEVICE):
   # Go to the folder containing all federated models
   model_path = os.path.join('./utils', 'models', project_name)
@@ -520,7 +521,8 @@ def test_federated_models(project_name, test_loader, device=DEVICE):
   print(pt_files)
 
   centralized_losses_path = os.path.join(model_path, 'centralized_losses.txt')
-  first_loss, _, _, _, _, _ = validate(load_model(), test_loader, device)
+  centralized_mae_path = os.path.join(model_path, 'centralized_mae.txt')
+  first_loss, _, _, _, _, first_mae = validate(load_model(), test_loader, device)
   # #Get the first line of the file which is a format of 0,loss
   # with open(centralized_losses_path, 'r') as f:
   #   first_line = f.readline()
@@ -530,20 +532,33 @@ def test_federated_models(project_name, test_loader, device=DEVICE):
     # Append timestamp to the old file name
     timestamp = datetime.datetime.now().strftime('%d-%m-%y-%H_%M')
     os.rename(centralized_losses_path, os.path.join(model_path, f'centralized_losses_old_{timestamp}.txt'))
+  if os.path.exists(centralized_mae_path):
+    # Append timestamp to the old file name
+    timestamp = datetime.datetime.now().strftime('%d-%m-%y-%H_%M')
+    os.rename(centralized_mae_path, os.path.join(model_path, f'centralized_mae_old_{timestamp}.txt'))
   # Create a new file with the first loss
   with open(centralized_losses_path, 'w') as f:
     f.write(f"0,{first_loss}\n")
+  with open(centralized_mae_path, 'w') as f:
+    f.write(f"0,{first_mae}\n")
+
+  #Get the amount of server rounds (amount of pt files)
+  server_rounds = len(pt_files)
 
   for i, pt_file in enumerate(pt_files):
+    #Only save prediction for the last model
+    save_prediction = i == server_rounds - 1
     # Test the model
     test_loss, corr, mae = test_model(project_name, test_loader, state_path=os.path.join(model_path, pt_file),
-                                      csv_save=False, device=device)
+                                      csv_save=save_prediction, device=device)
     print(f'Model {i + 1} - test loss: {test_loss:.2f}, corr: {corr:.2f}, mae: {mae:.2f}')
     # Write the losses to a file in save_dir
     # Since we have saved the old losses, we can append to the new file
     # Overwrite centralized_losses.txt
     with open(centralized_losses_path, 'a') as f:
       f.write(f"{i+1},{test_loss}\n")
+    with open(centralized_mae_path, 'a') as f:
+      f.write(f"{i+1},{mae}\n")
 
 
 
@@ -556,12 +571,29 @@ def test_federated_models(project_name, test_loader, device=DEVICE):
 
 
 if __name__ == '__main__':
+  model_starts = ['RW', 'DWood']
+  distributions = ['Original', 'Gaussian', 'Transition']
+  dwood_seed = 2
+  nodes = [3, 6]
+  strategies = ['FedProx', 'FedAvg']
+  project_names = []
+  for model_start in model_starts:
+    for distribution in distributions:
+      for strategy in strategies:
+        for node in nodes:
+          if distribution == 'Transition' and node == 3:
+            continue
+          seed_string = f'seed_{dwood_seed}_' if model_start == 'DWood' else ''
+          project_names.append(f'{strategy}_{model_start}_Distribution_{distribution}_{seed_string}{node}_Node')
+  print(project_names)
   # split_save_datasets('patients_dataset_9573.csv')
   # dwood_seed_2 = dwood + 'seed_2.pt'
-  run_model('centralized_DWood_seed_2_10_fold_kcrossval', epochs=20, kcrossval=10, seed=dwood_seed_2)
+  # run_model('centralized_DWood_seed_2_10_fold_kcrossval', epochs=20, kcrossval=10, seed=dwood_seed_2)
   # run_model('centralized_RW_10_fold_kcrossval_test', epochs=20, kcrossval=10)
-  # test_df = pd.read_csv('patients_dataset_9573_test.csv')
-  # test_loader = get_test_loader(test_df, batch_size=4)
+  test_df = pd.read_csv('patients_dataset_9573_test.csv')
+  test_loader = get_test_loader(test_df, batch_size=4)
+  for project_name in project_names:
+    test_federated_models(project_name, test_loader)
   # test_federated_models('FedProx_RW_Distribution_Gaussian_3_Node', test_loader)
 
 
