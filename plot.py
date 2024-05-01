@@ -177,7 +177,7 @@ def get_results(strategies, model, seeds, data, alias=None, kcrossval=False):
   return project_losses, client_losses
 
 # Define the plotting function
-def plot_centralized_losses(projects_losses, split='Dataset', mode='DWood', alias=None, nodes=6):
+def plot_centralized(projects_losses, split='Dataset', mode='DWood', alias=None, nodes=6, metric='loss'):
     # Set the aesthetic style of the plots
     sns.set(style="whitegrid")
 
@@ -203,17 +203,19 @@ def plot_centralized_losses(projects_losses, split='Dataset', mode='DWood', alia
     else:
       verbose_mode = mode
 
+    verbose_metric = 'Loss' if metric == 'loss' else 'MAE'
+
     # Customize the plot
-    title = f'Losses Over Server Rounds ({split}, {verbose_mode}, {nodes} nodes)'
+    title = f'{verbose_metric} Over Server Rounds ({split}, {verbose_mode}, {nodes} nodes)'
     if alias:
       title += f' ({alias})'
     plt.title(title, fontsize=16)
     plt.xlabel('Server Rounds/Epochs', fontsize=14)
-    plt.ylabel('Loss', fontsize=14)
+    plt.ylabel(verbose_metric, fontsize=14)
     plt.legend(title='Strategies')
     sns.despine()
     #Save the plot at the plot folders
-    file_name = f'losses_over_server_rounds_{split}_{mode}_{nodes}_nodes'
+    file_name = f'{metric}_over_server_rounds_{split}_{mode}_{nodes}_nodes'
     if alias:
       file_name += f'_{alias}'
     path = os.path.join(plot_folder, f'{file_name}.pdf')
