@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from utils import generate_save_dir, plot_folder
+from utils import generate_save_dir, plot_folder, test_folder
 
 
 #STD indicates whether the text file contains the standard deviation of the losses
@@ -501,6 +501,23 @@ def plot_parent_dataset_distribution(data, save_path=None):
       plt.savefig(save_path, format='pdf', dpi=300, bbox_inches='tight')
     plt.show()
 
+#Makes a scatterplot of the chronological age and the predicted age of the subjects., along with the identity line
+def plot_age_predictions(project_name, true_ages, pred_ages, save_path=None):
+  plt.figure(figsize=(10, 8))
+  sns.set(style="whitegrid")
+  plt.scatter(true_ages, pred_ages, color='skyblue', edgecolor='black')
+  # Plot the identity line
+  plt.plot([18, 95], [18, 95], color='red', linestyle='--')
+  plt.title(f'Predicted vs. True Age ({project_name})', fontsize=16)
+  plt.xlabel('True Age')
+  plt.ylabel('Predicted Age')
+  plt.grid(True)
+  plt.tight_layout()
+  if save_path:
+    plt.savefig(save_path, format='pdf', dpi=300, bbox_inches='tight')
+  plt.show()
+
+
 if __name__ == "__main__":
   strategies = ['FedAvg', 'FedProx']
   model = ['DWood']
@@ -512,6 +529,31 @@ if __name__ == "__main__":
     data.append('Distribution_Transition')
   alias = f'{nodes}_Node'
   project_losses, client_losses = get_results(strategies, model, seeds, data, alias=alias, kcrossval=True)
+  model_starts = ['RW', 'DWood']
+  distributions = ['Original', 'Gaussian', 'Transition']
+  dwood_seed = 2
+  nodes = [3, 6]
+  strategies = ['FedProx', 'FedAvg']
+  project_names = []
+  for model_start in model_starts:
+    for distribution in distributions:
+      for strategy in strategies:
+        for node in nodes:
+          if distribution == 'Transition' and node == 3:
+            continue
+          seed_string = f'seed_{dwood_seed}_' if model_start == 'DWood' else ''
+          project_name = f'{strategy}_{model_start}_Distribution_{distribution}_{seed_string}{node}_Node'
+          project_names.append(project_name)
+  for project_name in project_names:
+    #Get the right age test folder
+    age_folder = os.path.join(test_folder, project_name)
+    #Open project_name + brain_age_output as a pandas dataframe in this folder
+    df = pd.read_csv(os.path.join(age_folder, f'{project_name}_brain_age_output.csv'))
+    #Get the true ages and the predicted ages
+    true_ages = df['Chronological age']
+    pred_ages = df['Predicted_age (years)']
+    #Plot the age predictions
+    plot_age_predictions(project_name, true_ages, pred_ages)
   # all_merged_client_losses = {}
   # for project_name, client_tuples in client_losses.items():
   #   merged_client_losses = merge_client_losses(project_name, client_tuples)
@@ -544,5 +586,5 @@ if __name__ == "__main__":
   # print(client_losses.values())
   # From the project losses, remove all items with a key that have Gaussian in it
   # project_losses = {key: value for key, value in project_losses.items() if 'Gaussian' not in key}
-  plot_centralized_losses(project_losses, split='Distribution', mode=model[0], nodes=nodes)
+  # plot_centralized_losses(project_losses, split='Distribution', mode=model[0], nodes=nodes)
   # plot_client_losses(client_losses, nodes, split='Distribution', mode=model[0], kcrossval=True, columns=3)
