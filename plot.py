@@ -9,17 +9,19 @@ from utils import generate_save_dir, plot_folder, test_folder
 
 
 #STD indicates whether the text file contains the standard deviation of the losses
-def get_centralized_losses(project_name, std=False):
+def get_centralized_metrics(project_name, std=False):
   folder_path = generate_save_dir(project_name)
   # Construct the full path for the 'centralized_losses.txt' file
-  file_path = os.path.join(folder_path, 'centralized_losses.txt')
+  losses_file_path = os.path.join(folder_path, 'centralized_losses.txt')
+  mae_file_path = os.path.join(folder_path, 'centralized_mae.txt')
 
   # Initialize an empty array to hold the losses
   losses = []
+  mae = []
 
   # Try to open the file and read the contents
   try:
-    with open(file_path, 'r') as file:
+    with open(losses_file_path, 'r') as file:
       # Read each line in the file
       for line in file:
         # Split the line by comma and try to convert the second element to a float
@@ -34,10 +36,24 @@ def get_centralized_losses(project_name, std=False):
           continue
   except FileNotFoundError:
     # If the file does not exist, print an error message
-    print(f"The file {file_path} does not exist.")
+    print(f"The file {losses_file_path} does not exist.")
+  try:
+    with open(mae_file_path, 'r') as file:
+      # Read each line in the file
+      for line in file:
+        # Split the line by comma and try to convert the second element to a float
+        try:
+          index, loss = line.strip().split(',')
+          mae.append(float(loss))
+        except ValueError:
+          # If a line cannot be split or converted to float, ignore it
+          continue
+  except FileNotFoundError:
+    # If the file does not exist, print an error message
+    print(f"The file {mae_file_path} does not exist.")
 
-  # Return the array of losses
-  return losses
+  # Return the array of losses and the array of mae
+  return losses, mae
 
 #Function for retrieving the losses from the different decentralized folders
 def get_decentralized_losses(project_name):
@@ -123,11 +139,11 @@ def get_results(strategies, model, seeds, data, alias=None, kcrossval=False):
   project_losses = {}
   client_losses = {}
   for m in model:
-    centralized_name = f'centralized_{m}'
-    # if alias:
-    #   centralized_name += f'_{alias}'
-    loss = get_centralized_losses(centralized_name, std=True)
-    project_losses[centralized_name] = loss
+    # centralized_name = f'centralized_{m}'
+    # # if alias:
+    # #   centralized_name += f'_{alias}'
+    # loss_mae = get_centralized_metrics(centralized_name, std=True)
+    # project_losses[centralized_name] = loss_mae
     for s in strategies:
       for d in data:
         strategy_data_name = f'{s}_{m}'
@@ -146,11 +162,16 @@ def get_results(strategies, model, seeds, data, alias=None, kcrossval=False):
             project_name += f'_{alias}'
           project_names.append(project_name)
         # Get the losses for the project
-        losses = [get_centralized_losses(p) for p in project_names]
+        losses_mae = [get_centralized_metrics(p) for p in project_names]
+
+        #First element of the tuple is the losses
+        losses = [losses for losses, _ in losses_mae]
+        mae = [mae for _, mae in losses_mae]
         #Get the mean loss
         losses = np.array(losses).mean(axis=0)
+        mae = np.array(mae).mean(axis=0)
         # Add the project name and the losses to the dictionary
-        project_losses[project_name] = losses
+        project_losses[project_name] = (losses, mae)
         if kcrossval:
           client_tuples = [get_decentralized_losses_kcrossval(p) for p in project_names]
         else:
@@ -522,7 +543,7 @@ def plot_age_predictions(project_name, true_ages, pred_ages, save_path=None):
 
 if __name__ == "__main__":
   strategies = ['FedAvg', 'FedProx']
-  model = ['DWood']
+  model = ['RW']
   seeds = [2]
   # data = ['Dataset']
   data = ['Distribution_Gaussian', 'Distribution_Original']
@@ -531,31 +552,38 @@ if __name__ == "__main__":
     data.append('Distribution_Transition')
   alias = f'{nodes}_Node'
   project_losses, client_losses = get_results(strategies, model, seeds, data, alias=alias, kcrossval=True)
-  model_starts = ['RW', 'DWood']
-  distributions = ['Original', 'Gaussian', 'Transition']
-  dwood_seed = 2
-  nodes = [3, 6]
-  strategies = ['FedProx', 'FedAvg']
-  project_names = []
-  for model_start in model_starts:
-    for distribution in distributions:
-      for strategy in strategies:
-        for node in nodes:
-          if distribution == 'Transition' and node == 3:
-            continue
-          seed_string = f'seed_{dwood_seed}_' if model_start == 'DWood' else ''
-          project_name = f'{strategy}_{model_start}_Distribution_{distribution}_{seed_string}{node}_Node'
-          project_names.append(project_name)
-  for project_name in project_names:
-    #Get the right age test folder
-    age_folder = os.path.join(test_folder, project_name)
-    #Open project_name + brain_age_output as a pandas dataframe in this folder
-    df = pd.read_csv(os.path.join(age_folder, f'{project_name}_brain_age_output.csv'))
-    #Get the true ages and the predicted ages
-    true_ages = df['Chronological age']
-    pred_ages = df['Predicted_age (years)']
-    #Plot the age predictions
-    plot_age_predictions(project_name, true_ages, pred_ages)
+  print(project_losses.keys())
+  #Split project losses into project_losses and project_mae dictionary
+  project_mae = {key: value[1] for key, value in project_losses.items()}
+  project_losses = {key: value[0] for key, value in project_losses.items()}
+  #Plot the centralized losses
+  plot_centralized(project_losses, split='Distribution', mode=model[0], nodes=nodes, metric='loss')
+  plot_centralized(project_mae, split='Distribution', mode=model[0], nodes=nodes, metric='mae')
+  # model_starts = ['RW', 'DWood']
+  # distributions = ['Original', 'Gaussian', 'Transition']
+  # dwood_seed = 2
+  # nodes = [3, 6]
+  # strategies = ['FedProx', 'FedAvg']
+  # project_names = []
+  # for model_start in model_starts:
+  #   for distribution in distributions:
+  #     for strategy in strategies:
+  #       for node in nodes:
+  #         if distribution == 'Transition' and node == 3:
+  #           continue
+  #         seed_string = f'seed_{dwood_seed}_' if model_start == 'DWood' else ''
+  #         project_name = f'{strategy}_{model_start}_Distribution_{distribution}_{seed_string}{node}_Node'
+  #         project_names.append(project_name)
+  # for project_name in project_names:
+  #   #Get the right age test folder
+  #   age_folder = os.path.join(test_folder, project_name)
+  #   #Open project_name + brain_age_output as a pandas dataframe in this folder
+  #   df = pd.read_csv(os.path.join(age_folder, f'{project_name}_brain_age_output.csv'))
+  #   #Get the true ages and the predicted ages
+  #   true_ages = df['Chronological age']
+  #   pred_ages = df['Predicted_age (years)']
+  #   #Plot the age predictions
+  #   plot_age_predictions(project_name, true_ages, pred_ages)
   # all_merged_client_losses = {}
   # for project_name, client_tuples in client_losses.items():
   #   merged_client_losses = merge_client_losses(project_name, client_tuples)
