@@ -12,6 +12,7 @@ andrei = './utils/models/AndSilva/'
 
 #Plot folder
 plot_folder = './utils/plots/'
+test_folder = './utils/tests/'
 
 training_dataset = 'patients_dataset_9573_train.csv'
 testing_dataset = 'patients_dataset_9573_test.csv'
