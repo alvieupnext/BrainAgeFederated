@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from utils import generate_save_dir, plot_folder, test_folder
+from utils import generate_save_dir, plot_folder, test_folder, parse_project_name
 
 
 #STD indicates whether the text file contains the standard deviation of the losses
@@ -139,11 +139,11 @@ def get_results(strategies, model, seeds, data, alias=None, kcrossval=False):
   project_losses = {}
   client_losses = {}
   for m in model:
-    # centralized_name = f'centralized_{m}'
-    # # if alias:
-    # #   centralized_name += f'_{alias}'
-    # loss_mae = get_centralized_metrics(centralized_name, std=True)
-    # project_losses[centralized_name] = loss_mae
+    centralized_name = f'centralized_{m}'
+    # if alias:
+    #   centralized_name += f'_{alias}'
+    loss_mae = get_centralized_metrics(centralized_name, std=True)
+    project_losses[centralized_name] = loss_mae
     for s in strategies:
       for d in data:
         strategy_data_name = f'{s}_{m}'
@@ -157,6 +157,9 @@ def get_results(strategies, model, seeds, data, alias=None, kcrossval=False):
             seed_name = f'_seed_{seed}'
             if alias:
               project_names.append(project_name + seed_name + f'_{alias}')
+              project_name += f'_{alias}'
+            else:
+              project_names.append(project_name + seed_name)
         else:
           if alias:
             project_name += f'_{alias}'
@@ -525,13 +528,18 @@ def plot_parent_dataset_distribution(data, save_path=None):
     plt.show()
 
 #Makes a scatterplot of the chronological age and the predicted age of the subjects., along with the identity line
+#TODO calculate the MAE and the correlation coefficient using Pearson's r
 def plot_age_predictions(project_name, true_ages, pred_ages, save_path=None):
   plt.figure(figsize=(10, 8))
   sns.set(style="whitegrid")
   plt.scatter(true_ages, pred_ages, color='skyblue', edgecolor='black')
   # Plot the identity line
   plt.plot([18, 95], [18, 95], color='red', linestyle='--')
-  plt.title(f'Predicted vs. True Age ({project_name})', fontsize=16)
+  strategy, mode, data_slice, seed, distribution, nodes = parse_project_name(project_name)
+  if mode == 'RW':
+    mode = 'Random Weights'
+  project = f'{strategy}, {mode}, {data_slice} {distribution}, {nodes} Nodes'
+  plt.title(f'Predicted vs. True Age ({project})', fontsize=16)
   plt.xlabel('True Age')
   plt.ylabel('Predicted Age')
   plt.grid(True)
@@ -542,48 +550,56 @@ def plot_age_predictions(project_name, true_ages, pred_ages, save_path=None):
 
 
 if __name__ == "__main__":
-  strategies = ['FedAvg', 'FedProx']
-  model = ['RW']
-  seeds = [2]
-  # data = ['Dataset']
-  data = ['Distribution_Gaussian', 'Distribution_Original']
-  nodes = 6
-  if nodes == 6:
-    data.append('Distribution_Transition')
-  alias = f'{nodes}_Node'
-  project_losses, client_losses = get_results(strategies, model, seeds, data, alias=alias, kcrossval=True)
-  print(project_losses.keys())
-  #Split project losses into project_losses and project_mae dictionary
-  project_mae = {key: value[1] for key, value in project_losses.items()}
-  project_losses = {key: value[0] for key, value in project_losses.items()}
-  #Plot the centralized losses
-  plot_centralized(project_losses, split='Distribution', mode=model[0], nodes=nodes, metric='loss')
-  plot_centralized(project_mae, split='Distribution', mode=model[0], nodes=nodes, metric='mae')
-  # model_starts = ['RW', 'DWood']
-  # distributions = ['Original', 'Gaussian', 'Transition']
-  # dwood_seed = 2
-  # nodes = [3, 6]
-  # strategies = ['FedProx', 'FedAvg']
-  # project_names = []
-  # for model_start in model_starts:
-  #   for distribution in distributions:
-  #     for strategy in strategies:
-  #       for node in nodes:
-  #         if distribution == 'Transition' and node == 3:
-  #           continue
-  #         seed_string = f'seed_{dwood_seed}_' if model_start == 'DWood' else ''
-  #         project_name = f'{strategy}_{model_start}_Distribution_{distribution}_{seed_string}{node}_Node'
-  #         project_names.append(project_name)
-  # for project_name in project_names:
-  #   #Get the right age test folder
-  #   age_folder = os.path.join(test_folder, project_name)
-  #   #Open project_name + brain_age_output as a pandas dataframe in this folder
-  #   df = pd.read_csv(os.path.join(age_folder, f'{project_name}_brain_age_output.csv'))
-  #   #Get the true ages and the predicted ages
-  #   true_ages = df['Chronological age']
-  #   pred_ages = df['Predicted_age (years)']
-  #   #Plot the age predictions
-  #   plot_age_predictions(project_name, true_ages, pred_ages)
+  # strategies = ['FedAvg', 'FedProx']
+  # model = ['DWood', 'RW']
+  # seeds = [2]
+  # # data = ['Dataset']
+  # data = ['Distribution_Gaussian', 'Distribution_Original']
+  # nodes = 3
+  # if nodes == 6:
+  #   data.append('Distribution_Transition')
+  # alias = f'{nodes}_Node'
+  # project_losses, client_losses = get_results(strategies, model, seeds, data, alias=alias, kcrossval=True)
+  # print(project_losses.keys())
+  # #Split project losses into project_losses and project_mae dictionary
+  # project_mae = {key: value[1] for key, value in project_losses.items()}
+  # project_losses = {key: value[0] for key, value in project_losses.items()}
+  # print(project_mae)
+  # #From the project mae, only keep the final element of the array
+  # project_mae = {key: value[-1] for key, value in project_mae.items()}
+  # #Print the project mae
+  # print(project_mae)
+  # #Plot the centralized losses
+  # plot_centralized(project_losses, split='Distribution', mode=model[0], nodes=nodes, metric='loss')
+  # plot_centralized(project_mae, split='Distribution', mode=model[0], nodes=nodes, metric='mae')
+  model_starts = ['RW', 'DWood']
+  distributions = ['Original', 'Gaussian', 'Transition']
+  dwood_seed = 2
+  nodes = [3, 6]
+  strategies = ['FedProx', 'FedAvg']
+  project_names = []
+  for model_start in model_starts:
+    for distribution in distributions:
+      for strategy in strategies:
+        for node in nodes:
+          if distribution == 'Transition' and node == 3:
+            continue
+          seed_string = f'seed_{dwood_seed}_' if model_start == 'DWood' else ''
+          project_name = f'{strategy}_{model_start}_Distribution_{distribution}_{seed_string}{node}_Node'
+          project_names.append(project_name)
+  for project_name in project_names:
+    print(parse_project_name(project_name))
+    #Get the right age test folder
+    age_folder = os.path.join(test_folder, project_name)
+    #Open project_name + brain_age_output as a pandas dataframe in this folder
+    df = pd.read_csv(os.path.join(age_folder, f'{project_name}_brain_age_output.csv'))
+    #Get the true ages and the predicted ages
+    true_ages = df['Chronological age']
+    pred_ages = df['Predicted_age (years)']
+    #Save the plot in the plot folder
+    plot_path = os.path.join(plot_folder, f'age_predictions_{project_name}.pdf')
+    #Plot the age predictions
+    plot_age_predictions(project_name, true_ages, pred_ages, save_path=plot_path)
   # all_merged_client_losses = {}
   # for project_name, client_tuples in client_losses.items():
   #   merged_client_losses = merge_client_losses(project_name, client_tuples)
