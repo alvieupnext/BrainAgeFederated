@@ -562,6 +562,31 @@ def test_federated_models(project_name, test_loader, device=DEVICE, init_state_p
     with open(centralized_mae_path, 'a') as f:
       f.write(f"{i+1},{mae}\n")
 
+#testing centralized models
+def test_centralized_models(project_name, test_loader, device=DEVICE, init_state_path=None):
+  print(f'Testing centralized models for project {project_name}...')
+  # Go to the folder containing all federated models
+  model_path = os.path.join('./utils', 'models', project_name)
+
+  # Ensure model_path exists
+  if not os.path.exists(model_path):
+    print(f"Directory {model_path} not found.")
+    return
+
+  # In this folder, obtain all pt files that start with federated_model
+  pt_files = [f for f in os.listdir(model_path) if f.startswith('centralized') and f.endswith('.pt')]
+  # Sort the pt files by creation date (oldest first)
+  pt_files.sort(key=lambda x: os.path.getctime(os.path.join(model_path, x)))
+  print(pt_files)
+
+  #Select a random pt file in the folder
+  pt_file = np.random.choice(pt_files)
+  state_path = os.path.join(model_path, pt_file)
+  print(state_path)
+  test_loss, corr, mae = test_model(project_name, test_loader, state_path=state_path,
+                                    csv_save=True, device=device)
+  print(f'Model - test loss: {test_loss:.2f}, corr: {corr:.2f}, mae: {mae:.2f}')
+
 
 
 
@@ -580,6 +605,8 @@ if __name__ == '__main__':
   # run_model('centralized_RW_10_fold_kcrossval_test', epochs=20, kcrossval=10)
   test_df = pd.read_csv('patients_dataset_9573_test.csv')
   test_loader = get_test_loader(test_df, batch_size=4)
+  # test_centralized_models('centralized_DWood', test_loader)
+  # test_centralized_models('centralized_RW', test_loader)
   # test_federated_models('FedProx_RW_Distribution_Gaussian_3_Node', test_loader)
 
 
