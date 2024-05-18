@@ -45,7 +45,7 @@ def load_andrei_model_paths(prefix='rw', model_path=andrei):
   return [get_pt_file_path(f, model_path) for f in folders]
 
 
-def generate_project_name(strategy, mode, data_slice=None, seed=None):
+def generate_project_name(strategy, mode, data_slice=None, seed=None, distribution=None, alias=None):
   #Initial folder name
   project_name = f'{strategy}_{mode}'
   #If the strategy isn't centralized, add the data slice
@@ -53,11 +53,50 @@ def generate_project_name(strategy, mode, data_slice=None, seed=None):
     #Data slice must be defined
     if data_slice is None:
       raise ValueError('Data slice must be defined for non-centralized strategies')
-    project_name += f'_{data_slice}'
+    if distribution is not None:
+      project_name += f'_{data_slice}_{distribution}'
+    else:
+      project_name += f'_{data_slice}'
   #If the mode is DWood, add the seed
   if mode == 'DWood':
     #Seed must be defined
     if seed is None:
       raise ValueError('Seed must be defined for DWood mode')
     project_name += f'_seed_{seed}'
+  #If an alias is defined, add it
+  if alias is not None:
+    project_name += f'_{alias}'
   return project_name
+
+#From a project name, return the strategy, mode, data slice, seed, distribution and alias
+def parse_project_name(project_name):
+  #Split the project name by _
+  parts = project_name.split('_')
+  # print(parts)
+  #Get the strategy
+  strategy = parts[0]
+  #Get the mode
+  mode = parts[1]
+  #If the strategy isn't centralized, get the data slice
+  if strategy != 'centralized':
+    data_slice = parts[2]
+    #If the data slice is distribution, get the distribution
+    if data_slice == 'Distribution':
+      distribution = parts[3]
+    else:
+      distribution = None
+  else:
+    data_slice = None
+    distribution = None
+  #If the mode is DWood, get the seed
+  if mode == 'DWood':
+    seed = int(parts[5])
+  else:
+    seed = None
+  #If there is an alias, get it
+  if len(parts) > 3 and parts[-1] != 'seed':
+    node = int(parts[-2])
+  else:
+    node = None
+  return strategy, mode, data_slice, seed, distribution, node
+
