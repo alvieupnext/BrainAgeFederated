@@ -573,46 +573,13 @@ def test_federated_models(project_name, test_loader, device=DEVICE, init_state_p
 
 
 if __name__ == '__main__':
-  model_starts = ['RW', 'DWood']
-  distributions = ['Original', 'Gaussian', 'Transition']
-  dwood_seed = 2
-  nodes = [3, 6]
-  strategies = ['FedProx', 'FedAvg']
-  project_names_rw = []
-  project_names_dwood = []
-  for model_start in model_starts:
-    for distribution in distributions:
-      for strategy in strategies:
-        for node in nodes:
-          if distribution == 'Transition' and node == 3:
-            continue
-          seed_string = f'seed_{dwood_seed}_' if model_start == 'DWood' else ''
-          project_name = f'{strategy}_{model_start}_Distribution_{distribution}_{seed_string}{node}_Node'
-          if model_start == 'RW':
-            project_names_rw.append(project_name)
-          else:
-            project_names_dwood.append(project_name)
-  print(project_names_rw)
-  print(project_names_dwood)
   # split_save_datasets('patients_dataset_9573.csv')
-  # dwood_seed_2 = dwood + 'seed_2.pt'
+  dwood_seed_2 = dwood + 'seed_2.pt'
+
   # run_model('centralized_DWood_seed_2_10_fold_kcrossval', epochs=20, kcrossval=10, seed=dwood_seed_2)
   # run_model('centralized_RW_10_fold_kcrossval_test', epochs=20, kcrossval=10)
   test_df = pd.read_csv('patients_dataset_9573_test.csv')
   test_loader = get_test_loader(test_df, batch_size=4)
-  #First run a test to ensure every project name exists
-  for project_name in project_names_rw + project_names_dwood:
-    model_path = os.path.join('./utils', 'models', project_name)
-
-    # Ensure model_path exists
-    assert os.path.exists(model_path)
-  print('All project names exist')
-
-  for project_name in project_names_rw:
-    test_federated_models(project_name, test_loader)
-  dwood_seed_2 = dwood + 'seed_2.pt'
-  for project_name in project_names_dwood:
-    test_federated_models(project_name, test_loader, init_state_path=dwood_seed_2)
   # test_federated_models('FedProx_RW_Distribution_Gaussian_3_Node', test_loader)
 
 
