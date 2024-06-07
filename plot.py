@@ -528,18 +528,20 @@ def plot_parent_dataset_distribution(data, save_path=None):
     plt.show()
 
 #Makes a scatterplot of the chronological age and the predicted age of the subjects., along with the identity line
-#TODO calculate the MAE and the correlation coefficient using Pearson's r
 def plot_age_predictions(project_name, true_ages, pred_ages, save_path=None):
   plt.figure(figsize=(10, 8))
   sns.set(style="whitegrid")
   plt.scatter(true_ages, pred_ages, color='skyblue', edgecolor='black')
   # Plot the identity line
   plt.plot([18, 95], [18, 95], color='red', linestyle='--')
-  strategy, mode, data_slice, seed, distribution, nodes = parse_project_name(project_name)
-  if mode == 'RW':
-    mode = 'Random Weights'
-  project = f'{strategy}, {mode}, {data_slice} {distribution}, {nodes} Nodes'
-  plt.title(f'Predicted vs. True Age ({project})', fontsize=16)
+  #Calculate the MAE and the correlation coefficient
+  mae = np.abs(true_ages - pred_ages).mean()
+  correlation = np.corrcoef(true_ages, pred_ages)[0, 1]
+  # strategy, mode, data_slice, seed, distribution, nodes = parse_project_name(project_name)
+  # if mode == 'RW':
+  #   mode = 'Random Weights'
+  # project = f'{strategy}, {mode}, {data_slice} {distribution}, {nodes} Nodes'
+  plt.title(f'MAE = {mae}, corr = {correlation}', fontsize=16)
   plt.xlabel('True Age')
   plt.ylabel('Predicted Age')
   plt.grid(True)
@@ -587,9 +589,10 @@ if __name__ == "__main__":
           seed_string = f'seed_{dwood_seed}_' if model_start == 'DWood' else ''
           project_name = f'{strategy}_{model_start}_Distribution_{distribution}_{seed_string}{node}_Node'
           project_names.append(project_name)
-  for project_name in project_names:
-    print(parse_project_name(project_name))
-    #Get the right age test folder
+  #Append the centralized project names
+  project_names.append('centralized_DWood')
+  project_names.append('centralized_RW')
+  for project_name in project_names:    #Get the right age test folder
     age_folder = os.path.join(test_folder, project_name)
     #Open project_name + brain_age_output as a pandas dataframe in this folder
     df = pd.read_csv(os.path.join(age_folder, f'{project_name}_brain_age_output.csv'))
