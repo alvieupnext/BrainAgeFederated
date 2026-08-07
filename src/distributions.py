@@ -8,7 +8,7 @@ import os
 from plot import plot_dataset_distribution, plot_parent_dataset_distribution, plot_age_distribution
 
 # Get the absolute path to the data directory
-DATA_PATH = 'data/patients_dataset_9573.csv'
+DATA_PATH = 'data/patients_dataset_9573.jsonl'
 
 
 #Obtain the distribution of the age of the patients
@@ -171,7 +171,7 @@ def _init_profiles():
     global normal_distribution1, normal_distribution2, normal_distribution3, mixture_distribution
     if _profiles_initialized:
         return
-    dataset = pd.read_csv(DATA_PATH)
+    dataset = pd.read_json(DATA_PATH, lines=True)
     df = dataset.drop(columns=['dataset', 'dataset_name'])
 
     normal_distribution1 = gaussian_config(1, 22.447, np.sqrt(8.41449796))

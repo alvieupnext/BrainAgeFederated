@@ -38,7 +38,7 @@ def client_fn(context: Context):
     save_dir = f'./utils/models/{project_name}/'
     
     # 3. Load dataset locally and grab this node's specific partition
-    raw_dataset = load_dataset("csv", data_files=master_dataset)["train"]
+    raw_dataset = load_dataset("json", data_files=master_dataset)["train"]
     dataset = raw_dataset.train_test_split(test_size=0.2, seed=42)["train"]
     
     partitioner = BrainAgePartitioner(distribution_type=distribution, num_partitions=num_partitions)

@@ -26,6 +26,7 @@ packages = ["src"]
 
 [tool.flwr.app]
 publisher = "alvieupnext"
+fab-include = ["data/*.jsonl"]
 
 [tool.flwr.app.components]
 serverapp = "src.server_app:app"

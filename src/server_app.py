@@ -76,7 +76,7 @@ def server_fn(context: Context) -> ServerAppComponents:
     initial_parameters = fl.common.ndarrays_to_parameters(weights)
 
     # 4. Setup Global Evaluation Dataloader
-    raw_dataset = load_dataset("csv", data_files=master_dataset)["train"]
+    raw_dataset = load_dataset("json", data_files=master_dataset)["train"]
     splits = raw_dataset.train_test_split(test_size=0.2, seed=42)
     testdf = splits["test"].to_pandas()
     testloader = get_test_loader(testdf, batch_size=4, dataset_scale=1, mock=mock)

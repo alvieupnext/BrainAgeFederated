@@ -452,7 +452,7 @@ def run_model(project_name, epochs=10, kcrossval=10, seed=None, test_dataset=Non
     print("new directory created for " + project_name)
   #Print the device we are currently working on
   print(DEVICE)
-  df = pd.read_csv(master_dataset)
+  df = pd.read_json(master_dataset, lines=True)
   train_df, default_test_df = train_test_split(df, test_size=0.2, random_state=42)
   trainloaders, valloaders = get_train_valid_loader(train_df, batch_size=3, random_seed=10, aug='none', kcrossval=kcrossval, icross=-1)
   # Load test data
