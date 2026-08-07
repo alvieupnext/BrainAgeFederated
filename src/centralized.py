@@ -21,6 +21,12 @@ from monai.transforms import (
     RandFlip,
 )
 
+class MockLoadImage:
+    def __init__(self, *args, **kwargs):
+        pass
+    def __call__(self, data):
+        return np.random.rand(1, 130, 130, 130).astype(np.float32)
+
 from distributions import distribution_profiles_3_nodes, distribution_profiles_6_nodes, dataframes_from_distribution
 
 from scipy.stats import beta
@@ -224,9 +230,12 @@ class dataset(Dataset):
     return tensor, age, idsub
 
 
-def get_data_transforms(augmentation='none'):
+def get_data_transforms(augmentation='none', mock=False):
   """Generate data transformations based on the augmentation type."""
-  base_transforms = [LoadImage(image_only=True, ensure_channel_first=True)]
+  if mock:
+    base_transforms = [MockLoadImage()]
+  else:
+    base_transforms = [LoadImage(image_only=True, ensure_channel_first=True)]
   if augmentation == 'flip':
     base_transforms.append(RandFlip(prob=0.5, spatial_axis=0))
   base_transforms.append(ToTensor())
@@ -258,10 +267,10 @@ def get_loader(df, ids, transforms, batch_size):
   return DataLoader(dataset_obj, batch_size=batch_size, sampler=sampler), len(idx)
 
 
-def get_train_valid_loader(df, batch_size=4, random_seed=10, aug='none', kcrossval=None, icross=-1, dataset_scale=1.0):
+def get_train_valid_loader(df, batch_size=4, random_seed=10, aug='none', kcrossval=None, icross=-1, dataset_scale=1.0, mock=False):
   print('Composing transformations and structuring loader datasets...')
-  train_transforms = get_data_transforms(augmentation=aug)
-  valid_transforms = get_data_transforms(augmentation='none')
+  train_transforms = get_data_transforms(augmentation=aug, mock=mock)
+  valid_transforms = get_data_transforms(augmentation='none', mock=mock)
   #No cross_validation
   train_val_ids = []
   if kcrossval is None:
@@ -288,9 +297,9 @@ def get_train_valid_loader(df, batch_size=4, random_seed=10, aug='none', kcrossv
   return train_loaders, valid_loaders
 
 #Function that creates a train loader, no validation loader
-def get_train_loader(df, batch_size=4, random_seed=10, aug='none', dataset_scale=1.0):
+def get_train_loader(df, batch_size=4, random_seed=10, aug='none', dataset_scale=1.0, mock=False):
   print('Composing transformations and structuring train loader dataset...')
-  train_transforms = get_data_transforms(augmentation=aug)
+  train_transforms = get_data_transforms(augmentation=aug, mock=mock)
   # Get all unique IDs and then scale the list according to the dataset_scale parameter
   all_train_ids = df['ID'].unique().tolist()
   scaled_size = int(len(all_train_ids) * dataset_scale)
@@ -303,9 +312,9 @@ def get_train_loader(df, batch_size=4, random_seed=10, aug='none', dataset_scale
   return train_loader
 
 
-def get_test_loader(df, batch_size, dataset_scale=1.0):
+def get_test_loader(df, batch_size, dataset_scale=1.0, mock=False):
   print('Composing transformations and structuring test loader dataset...')
-  test_transforms = get_data_transforms(augmentation='none')
+  test_transforms = get_data_transforms(augmentation='none', mock=mock)
   # Get all unique IDs and then scale the list according to the dataset_scale parameter
   all_test_ids = df['ID'].unique().tolist()
   scaled_size = int(len(all_test_ids) * dataset_scale)

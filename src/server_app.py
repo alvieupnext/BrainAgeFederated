@@ -47,6 +47,7 @@ def server_fn(context: Context) -> ServerAppComponents:
     split = run_config.get("split", "dataset").capitalize()
     distribution = run_config.get("distribution", "Original")
     alias = run_config.get("alias", None)
+    mock = run_config.get("mock", False)
     
     # 2. Setup project names and paths
     mode = 'RW' if not seed else 'DWood'
@@ -78,7 +79,7 @@ def server_fn(context: Context) -> ServerAppComponents:
     raw_dataset = load_dataset("csv", data_files=master_dataset)["train"]
     splits = raw_dataset.train_test_split(test_size=0.2, seed=42)
     testdf = splits["test"].to_pandas()
-    testloader = get_test_loader(testdf, batch_size=4, dataset_scale=1)
+    testloader = get_test_loader(testdf, batch_size=4, dataset_scale=1, mock=mock)
 
     # 5. Initialize Strategy
     if strategy_name == 'FedAvg':

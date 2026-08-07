@@ -25,6 +25,7 @@ def client_fn(context: Context):
     distribution = run_config.get("distribution", "Original")
     alias = run_config.get("alias", None)
     kcrossval = run_config.get("kcrossval", 10)
+    mock = run_config.get("mock", False)
     
     # 2. Setup project name and save dir
     mode = 'RW' if not seed else 'DWood'
@@ -57,9 +58,9 @@ def client_fn(context: Context):
     
     if strategy_name == 'FedAvg':
         # to_client() converts NumPyClient to standard Flower Client
-        return FlowerClient(net, project_name, save_dir, partition_df, str(partition_id), name=name, kcrossval=kcrossval, device=device).to_client()
+        return FlowerClient(net, project_name, save_dir, partition_df, str(partition_id), name=name, kcrossval=kcrossval, device=device, mock=mock).to_client()
     elif strategy_name == 'FedProx':
-        return FedProxClient(net, project_name, save_dir, partition_df, str(partition_id), name=name, kcrossval=kcrossval, device=device).to_client()
+        return FedProxClient(net, project_name, save_dir, partition_df, str(partition_id), name=name, kcrossval=kcrossval, device=device, mock=mock).to_client()
     else:
         raise ValueError(f"Unknown strategy: {strategy_name}")
 

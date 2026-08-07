@@ -43,3 +43,4 @@ save-dir = "./utils/models/"
 epochs = 20
 patience = 4
 seed = ""
+mock = false

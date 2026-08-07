@@ -32,11 +32,11 @@ def set_parameters(model, parameters):
 
 class FlowerClient(fl.client.NumPyClient):
 
-    def __init__(self, net, project_name, save_dir, dataset, cid, name=None, kcrossval=10, device='cuda'):
+    def __init__(self, net, project_name, save_dir, dataset, cid, name=None, kcrossval=10, device='cuda', mock=False):
       self.net = net
       self.dataset = dataset
       #Split the dataset into train and validation
-      trainloaders, valloaders = get_train_valid_loader(self.dataset, batch_size=4, random_seed=10, aug='none', kcrossval=kcrossval, icross=-1)
+      trainloaders, valloaders = get_train_valid_loader(self.dataset, batch_size=4, random_seed=10, aug='none', kcrossval=kcrossval, icross=-1, mock=mock)
       self.trainloaders = trainloaders
       self.valloaders = valloaders
       self.folds = kcrossval
