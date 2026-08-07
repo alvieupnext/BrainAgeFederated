@@ -1,4 +1,7 @@
+import sys
 import os
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 import torch
 import pandas as pd
 import flwr as fl
@@ -46,8 +49,8 @@ def server_fn(context: Context) -> ServerAppComponents:
     alias = run_config.get("alias", None)
     
     # 2. Setup project names and paths
-    mode = 'RW' if seed is None else 'DWood'
-    seed_str = f'_seed_{seed}' if seed is not None else ''
+    mode = 'RW' if not seed else 'DWood'
+    seed_str = f'_seed_{seed}' if seed else ''
     alias_str = f'_{alias}' if alias is not None else ''
     if split.lower() == 'distribution':
         split += f'_{distribution}'

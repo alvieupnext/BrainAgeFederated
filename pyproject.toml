@@ -8,7 +8,17 @@ version = "1.0.0"
 description = "Federated and centralized training workflows for brain age estimation"
 dependencies = [
     "flwr>=1.33.0",
-    "flwr-datasets[vision]>=0.6.0"
+    "flwr-datasets[vision]",
+    "monai",
+    "torch",
+    "torchvision",
+    "scikit-learn",
+    "nibabel",
+    "tqdm",
+    "pandas",
+    "scipy",
+    "matplotlib",
+    "numpy"
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -30,3 +40,6 @@ distribution = "Gaussian"
 strategy = "FedAvg"
 alias = "3_Node"
 save-dir = "./utils/models/"
+epochs = 20
+patience = 4
+seed = ""

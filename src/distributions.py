@@ -4,7 +4,11 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.mixture import GaussianMixture as GM
 
+import os
 from plot import plot_dataset_distribution, plot_parent_dataset_distribution, plot_age_distribution
+
+# Get the absolute path to the data directory
+DATA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'patients_dataset_9573.csv')
 
 
 #Obtain the distribution of the age of the patients
@@ -153,7 +157,7 @@ def two_gaussian_config(mean, cov, mean2, cov2, p):
     percentage = int(p * 100)
     return f'TwoGaussian Junior {percentage}%, Senior {100 - percentage}%', {'mean': mean, 'cov': cov, 'mean2': mean2, 'cov2': cov2, 'p': p}
 
-df = pd.read_csv('data/patients_dataset_9573.csv')
+df = pd.read_csv(DATA_PATH)
 
 normal_distribution1 = gaussian_config(1, 22.447, np.sqrt(8.41449796))
 normal_distribution2 = gaussian_config(2, 22.447, np.sqrt(8.41449796))
@@ -339,7 +343,7 @@ def dataframes_from_distribution(df, distribution_profile, nodes):
 #
 # plot_age_distribution(age_distribution(df), 'OriginalData')
 
-dataset = pd.read_csv('data/patients_dataset_9573.csv')
+dataset = pd.read_csv(DATA_PATH)
 
 #Drop dataset and dataset_name columns
 df = dataset.drop(columns=['dataset', 'dataset_name'])
