@@ -14,7 +14,9 @@ andrei = './utils/models/AndSilva/'
 plot_folder = './utils/plots/'
 test_folder = './utils/tests/'
 
-master_dataset = 'data/patients_dataset_9573.jsonl'
+import os
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+master_dataset = os.path.join(BASE_DIR, 'data', 'patients_dataset_9573.jsonl')
 
 
 def save_csv_prediction(outdir, project_name, true_ages, pred_ages, ids_sub):

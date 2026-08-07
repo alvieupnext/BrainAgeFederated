@@ -8,7 +8,8 @@ import os
 from plot import plot_dataset_distribution, plot_parent_dataset_distribution, plot_age_distribution
 
 # Get the absolute path to the data directory
-DATA_PATH = 'data/patients_dataset_9573.jsonl'
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_PATH = os.path.join(BASE_DIR, 'data', 'patients_dataset_9573.jsonl')
 
 
 #Obtain the distribution of the age of the patients
