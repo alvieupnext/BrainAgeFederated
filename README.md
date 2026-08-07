@@ -57,6 +57,11 @@ Included CSV sizes:
 - `patients_dataset_6326_train.csv`: 5,060 rows
 - `patients_dataset_6326_test.csv`: 1,266 rows
 
+### Client Data Splitting Strategies
+When running federated simulations, you must specify how to divide the data amongst the simulated clients (`--split`):
+- **Dataset Split (`--split dataset`)**: This partitions the data based on the actual clinical origin of the MRI scans (using the `dataset_name` column). This mimics a real-world cross-silo scenario where each client represents a specific hospital or clinical trial dataset.
+- **Distribution Split (`--split distribution`)**: This artificially shapes the dataset each client receives based on synthetic statistical age distributions (e.g., Gaussian mixtures). This allows you to aggressively test how the algorithm handles extreme age imbalances (where some clients only see younger brains and others see elderly brains) regardless of the hospital source.
+
 Important:
 - `processed_file_name` values are absolute MRI file paths. You need those NIfTI files available in your environment.
 - Default training/testing file names used by code are configured in `utils.py`.
