@@ -62,6 +62,12 @@ When running federated simulations, you must specify how to divide the data amon
 - **Dataset Split (`--split dataset`)**: This partitions the data based on the actual clinical origin of the MRI scans (using the `dataset_name` column). This mimics a real-world cross-silo scenario where each client represents a specific hospital or clinical trial dataset.
 - **Distribution Split (`--split distribution`)**: This artificially shapes the dataset each client receives based on synthetic statistical age distributions (e.g., Gaussian mixtures). This allows you to aggressively test how the algorithm handles extreme age imbalances (where some clients only see younger brains and others see elderly brains) regardless of the hospital source.
 
+#### Available Distributions
+If you choose `--split distribution`, you must pass the `--distribution` flag with one of the following configurations:
+- **`Original` (IID Setup)**: Each node randomly samples patients from the entire global dataset. This emulates perfect IID (Independent and Identically Distributed) conditions, ensuring all nodes have the exact same age demographics. This serves as a baseline for federated performance without demographic disparity.
+- **`Gaussian` (Extreme Non-IID Setup)**: Artificially forces nodes into extreme demographic silos based on a two-component Gaussian mixture of the real data: "Junior" (mean age ~22.4) and "Senior" (mean age ~56.4). To respect the overall class imbalance, 2/3 of the nodes are designated as Junior nodes, and 1/3 are designated as Senior nodes. This emulates highly Non-IID conditions (e.g., pediatric vs. geriatric centers).
+- **`Transition` (Gradient Non-IID Setup, 6-nodes only)**: Creates a smooth, sliding scale of demographics across 6 nodes using a mixed sampling ratio. Nodes transition from predominantly Junior (80% Junior / 20% Senior) down to predominantly Senior (20% Junior / 80% Senior). Predominantly Junior nodes appear at twice the frequency of predominantly Senior nodes to maintain the global dataset's class imbalance.
+
 Important:
 - `processed_file_name` values are absolute MRI file paths. You need those NIfTI files available in your environment.
 - Default training/testing file names used by code are configured in `utils.py`.
