@@ -603,7 +603,7 @@ if __name__ == '__main__':
 
   # run_model('centralized_DWood_seed_2_10_fold_kcrossval', epochs=20, kcrossval=10, seed=dwood_seed_2)
   # run_model('centralized_RW_10_fold_kcrossval_test', epochs=20, kcrossval=10)
-  test_df = pd.read_csv('patients_dataset_9573_test.csv')
+  test_df = pd.read_csv('data/patients_dataset_9573_test.csv')
   test_loader = get_test_loader(test_df, batch_size=4)
   # test_centralized_models('centralized_DWood', test_loader)
   # test_centralized_models('centralized_RW', test_loader)

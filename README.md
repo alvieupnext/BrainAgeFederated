@@ -31,6 +31,7 @@ Main capabilities:
 
 ## Repository Contents
 
+### `src/` (Source Code)
 - `simulation.py`: Main federated simulation entry point (CLI).
 - `client.py`: Flower client implementations (`FlowerClient`, `FedProxClient`) with k-fold local training.
 - `strategy.py`: Custom Flower strategies that persist aggregated global checkpoints each round.
@@ -38,6 +39,8 @@ Main capabilities:
 - `distributions.py`: Synthetic age distribution definitions and dataset sampling logic.
 - `plot.py`: Plotting utilities for losses, age distributions, and prediction quality.
 - `utils.py`: Shared paths, dataset/model loaders, splitting helpers, model construction.
+
+### `data/` (Datasets)
 - `patients_dataset_*.csv`: Metadata CSVs for training/testing splits.
 
 ## Data
@@ -73,7 +76,7 @@ Core dependencies: `torch`, `monai`, `flwr`, `ray`, `pandas`, `scikit-learn`, `m
 Default run (FedAvg, dataset split):
 
 ```bash
-python simulation.py \
+python src/simulation.py \
   --strategy FedAvg \
   --split dataset \
   --server_rounds 5 \
@@ -84,7 +87,7 @@ python simulation.py \
 Example with FedProx + DWood initialization + distribution split:
 
 ```bash
-python simulation.py \
+python src/simulation.py \
   --strategy FedProx \
   --seed 2 \
   --split distribution \
@@ -101,14 +104,14 @@ Notes:
 
 ## Running Centralized Baseline
 
-`centralized.py` is function-driven (no full CLI parser). Example calls:
+`src/centralized.py` is function-driven (no full CLI parser). Example calls:
 
 ```bash
-python -c "from centralized import run_model; run_model('centralized_RW', epochs=20, kcrossval=10, test_dataset='patients_dataset_9573_test.csv')"
+python -c "import sys; sys.path.append('src'); from centralized import run_model; run_model('centralized_RW', epochs=20, kcrossval=10, test_dataset='data/patients_dataset_9573_test.csv')"
 ```
 
 ```bash
-python -c "from centralized import run_model; run_model('centralized_DWood', epochs=20, kcrossval=10, seed='./utils/models/DWood/T1/seed_2.pt', test_dataset='patients_dataset_9573_test.csv')"
+python -c "import sys; sys.path.append('src'); from centralized import run_model; run_model('centralized_DWood', epochs=20, kcrossval=10, seed='./utils/models/DWood/T1/seed_2.pt', test_dataset='data/patients_dataset_9573_test.csv')"
 ```
 
 ## Outputs
