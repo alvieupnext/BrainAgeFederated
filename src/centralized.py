@@ -27,7 +27,7 @@ import pandas as pd
 
 from distributions import dataset_from_distribution
 from utils import dwood, save_csv_prediction, generate_project_name, get_pt_file_path, load_andrei_model_paths, \
-  training_dataset
+  master_dataset
 
 warnings.filterwarnings("ignore")
 
@@ -442,10 +442,11 @@ def run_model(project_name, epochs=10, kcrossval=10, seed=None, test_dataset=Non
     print("new directory created for " + project_name)
   #Print the device we are currently working on
   print(DEVICE)
-  train_df = pd.read_csv(training_dataset)
+  df = pd.read_csv(master_dataset)
+  train_df, default_test_df = train_test_split(df, test_size=0.2, random_state=42)
   trainloaders, valloaders = get_train_valid_loader(train_df, batch_size=3, random_seed=10, aug='none', kcrossval=kcrossval, icross=-1)
   # Load test data
-  testdf = pd.read_csv(test_dataset)
+  testdf = pd.read_csv(test_dataset) if test_dataset else default_test_df
   testloader = get_test_loader(testdf, batch_size=4)
   fold_losses = []
   # dwood_seed_2 = dwood + 'seed_2.pt'

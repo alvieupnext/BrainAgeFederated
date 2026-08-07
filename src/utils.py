@@ -14,8 +14,7 @@ andrei = './utils/models/AndSilva/'
 plot_folder = './utils/plots/'
 test_folder = './utils/tests/'
 
-training_dataset = 'data/patients_dataset_9573_train.csv'
-testing_dataset = 'data/patients_dataset_9573_test.csv'
+master_dataset = 'data/patients_dataset_9573.csv'
 
 
 def save_csv_prediction(outdir, project_name, true_ages, pred_ages, ids_sub):

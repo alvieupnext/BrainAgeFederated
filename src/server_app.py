@@ -8,7 +8,8 @@ from flwr.common import Context
 from centralized import load_model, get_test_loader, validate
 from client import set_parameters
 from strategy import SaveFedAvg, SaveFedProx
-from utils import dwood, testing_dataset
+from utils import dwood, master_dataset
+from datasets import load_dataset
 
 def get_evaluate_fn(model, save_dir, testloader, device):
     def evaluate(server_round: int, parameters: fl.common.NDArrays, config: dict):
@@ -71,7 +72,9 @@ def server_fn(context: Context) -> ServerAppComponents:
     initial_parameters = fl.common.ndarrays_to_parameters(weights)
 
     # 4. Setup Global Evaluation Dataloader
-    testdf = pd.read_csv(testing_dataset)
+    raw_dataset = load_dataset("csv", data_files=master_dataset)["train"]
+    splits = raw_dataset.train_test_split(test_size=0.2, seed=42)
+    testdf = splits["test"].to_pandas()
     testloader = get_test_loader(testdf, batch_size=4, dataset_scale=1)
 
     # 5. Initialize Strategy
