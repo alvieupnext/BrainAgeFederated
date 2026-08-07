@@ -85,34 +85,30 @@ Core dependencies: `torch`, `monai`, `flwr`, `ray`, `pandas`, `scikit-learn`, `m
 
 ## Running Federated Simulation
 
-Default run (FedAvg, dataset split):
+With the upgrade to Flower Next (1.33+), the federated simulation is orchestrated entirely via `pyproject.toml` using the Flower ClientApp/ServerApp architecture.
+
+Default run (reads configuration from `pyproject.toml`):
 
 ```bash
-python src/simulation.py \
-  --strategy FedAvg \
-  --split dataset \
-  --server_rounds 5 \
-  --kcrossval 10 \
-  --nodes 3
+flwr run .
 ```
 
-Example with FedProx + DWood initialization + distribution split:
+Example of overriding configurations on the fly:
 
 ```bash
-python src/simulation.py \
-  --strategy FedProx \
-  --seed 2 \
-  --split distribution \
-  --distribution Gaussian \
-  --server_rounds 5 \
-  --kcrossval 10 \
-  --nodes 3 \
-  --alias 3_Node
+flwr run . \
+  --run-config strategy="FedProx" \
+  --run-config split="distribution" \
+  --run-config distribution="Gaussian" \
+  --run-config num-server-rounds=5 \
+  --run-config nodes=3 \
+  --run-config alias="3_Node"
 ```
 
 Notes:
-- `--seed <n>` switches initialization from random weights (`RW`) to DWood checkpoint mode and expects `./utils/models/DWood/T1/seed_<n>.pt`.
-- `--distribution Transition` is defined for 6-node profiles.
+- The execution engine will automatically inject these configs into the `Context` object for the Server and Client apps.
+- `--run-config seed=<n>` switches initialization from random weights (`RW`) to DWood checkpoint mode and expects `./utils/models/DWood/T1/seed_<n>.pt`.
+- `--run-config distribution="Transition"` is defined for 6-node profiles.
 
 ## Running Centralized Baseline
 
