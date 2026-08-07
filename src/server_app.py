@@ -75,18 +75,17 @@ def server_fn(context: Context) -> ServerAppComponents:
     weights = [val.cpu().numpy() for _, val in net.state_dict().items()]
     initial_parameters = fl.common.ndarrays_to_parameters(weights)
 
-    # 4. Setup Global Evaluation Dataloader
-    raw_dataset = load_dataset("json", data_files=master_dataset)["train"]
-    splits = raw_dataset.train_test_split(test_size=0.2, seed=42)
-    testdf = splits["test"].to_pandas()
-    testloader = get_test_loader(testdf, batch_size=4, dataset_scale=1, mock=mock)
+    # 4. Setup Global Evaluation Dataloader (Disabled for now)
+    # raw_dataset = load_dataset("json", data_files=master_dataset)["train"]
+    # splits = raw_dataset.train_test_split(test_size=0.2, seed=42)
+    # testdf = splits["test"].to_pandas()
+    # testloader = get_test_loader(testdf, batch_size=4, dataset_scale=1, mock=mock)
 
     # 5. Initialize Strategy
     if strategy_name == 'FedAvg':
         strategy = SaveFedAvg(
             fraction_fit=1.0,
             fraction_evaluate=0.5,
-            evaluate_fn=get_evaluate_fn(net, save_dir, testloader, device),
             on_fit_config_fn=generate_fit_config(epochs, patience),
             initial_parameters=initial_parameters,
             save_dir=save_dir,
@@ -95,7 +94,6 @@ def server_fn(context: Context) -> ServerAppComponents:
         strategy = SaveFedProx(
             fraction_fit=1.0,
             fraction_evaluate=0.5,
-            evaluate_fn=get_evaluate_fn(net, save_dir, testloader, device),
             on_fit_config_fn=generate_fit_config(epochs, patience),
             initial_parameters=initial_parameters,
             proximal_mu=1.0,
