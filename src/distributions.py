@@ -8,7 +8,7 @@ import os
 from plot import plot_dataset_distribution, plot_parent_dataset_distribution, plot_age_distribution
 
 # Get the absolute path to the data directory
-DATA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'patients_dataset_9573.csv')
+DATA_PATH = 'data/patients_dataset_9573.csv'
 
 
 #Obtain the distribution of the age of the patients
@@ -157,20 +157,61 @@ def two_gaussian_config(mean, cov, mean2, cov2, p):
     percentage = int(p * 100)
     return f'TwoGaussian Junior {percentage}%, Senior {100 - percentage}%', {'mean': mean, 'cov': cov, 'mean2': mean2, 'cov2': cov2, 'p': p}
 
-df = pd.read_csv(DATA_PATH)
+_profiles_initialized = False
+distribution_profiles_3_nodes = None
+distribution_profiles_6_nodes = None
+df = None
+normal_distribution1 = None
+normal_distribution2 = None
+normal_distribution3 = None
+mixture_distribution = None
 
-normal_distribution1 = gaussian_config(1, 22.447, np.sqrt(8.41449796))
-normal_distribution2 = gaussian_config(2, 22.447, np.sqrt(8.41449796))
-normal_distribution3 = gaussian_config(3, 56.47287982, np.sqrt(260.14362206))
-mixture_distribution = gaussian_mixture_config(2, 10, df)
-original_distribution = original_distribution_config(df)
-# Make six nodes with the same distribution, transitioning from one to the other
-two_gaussian_1 = two_gaussian_config(22.447, np.sqrt(8.41449796), 56.47287982, np.sqrt(260.14362206), 0.8)
-two_gaussian_2 = two_gaussian_config(22.447, np.sqrt(8.41449796), 56.47287982, np.sqrt(260.14362206), 0.8)
-two_gaussian_3 = two_gaussian_config(22.447, np.sqrt(8.41449796), 56.47287982, np.sqrt(260.14362206), 0.6)
-two_gaussian_4 = two_gaussian_config(22.447, np.sqrt(8.41449796), 56.47287982, np.sqrt(260.14362206), 0.6)
-two_gaussian_5 = two_gaussian_config(22.447, np.sqrt(8.41449796), 56.47287982, np.sqrt(260.14362206), 0.4)
-two_gaussian_6 = two_gaussian_config(22.447, np.sqrt(8.41449796), 56.47287982, np.sqrt(260.14362206), 0.2)
+def _init_profiles():
+    global _profiles_initialized, distribution_profiles_3_nodes, distribution_profiles_6_nodes, df
+    global normal_distribution1, normal_distribution2, normal_distribution3, mixture_distribution
+    if _profiles_initialized:
+        return
+    dataset = pd.read_csv(DATA_PATH)
+    df = dataset.drop(columns=['dataset', 'dataset_name'])
+
+    normal_distribution1 = gaussian_config(1, 22.447, np.sqrt(8.41449796))
+    normal_distribution2 = gaussian_config(2, 22.447, np.sqrt(8.41449796))
+    normal_distribution3 = gaussian_config(3, 56.47287982, np.sqrt(260.14362206))
+    mixture_distribution = gaussian_mixture_config(2, 10, df)
+    original_distribution = original_distribution_config(df)
+
+    two_gaussian_1 = two_gaussian_config(22.447, np.sqrt(8.41449796), 56.47287982, np.sqrt(260.14362206), 0.8)
+    two_gaussian_2 = two_gaussian_config(22.447, np.sqrt(8.41449796), 56.47287982, np.sqrt(260.14362206), 0.8)
+    two_gaussian_3 = two_gaussian_config(22.447, np.sqrt(8.41449796), 56.47287982, np.sqrt(260.14362206), 0.6)
+    two_gaussian_4 = two_gaussian_config(22.447, np.sqrt(8.41449796), 56.47287982, np.sqrt(260.14362206), 0.6)
+    two_gaussian_5 = two_gaussian_config(22.447, np.sqrt(8.41449796), 56.47287982, np.sqrt(260.14362206), 0.4)
+    two_gaussian_6 = two_gaussian_config(22.447, np.sqrt(8.41449796), 56.47287982, np.sqrt(260.14362206), 0.2)
+    
+    gaussian_young = get_distribution(*normal_distribution1)
+    gaussian_old = get_distribution(*normal_distribution3)
+    mixture = get_distribution(*mixture_distribution)
+    original = get_distribution(*original_distribution)
+
+    distribution_profiles_3_nodes = {'Original': {1: original, 2: original, 3: original},
+                          'Gaussian': {'Junior1': gaussian_young, 'Junior2': gaussian_young, 'Senior': gaussian_old},
+                          'Mixture': {1: mixture, 2: mixture, 3: mixture}
+                                     }
+
+    distribution_profiles_6_nodes = {'Original': {1: original, 2: original, 3: original, 4: original, 5: original, 6: original},
+                          'Gaussian': {'Junior1': gaussian_young, 'Junior2': gaussian_young,
+                                       'Junior3': gaussian_young, 'Junior4': gaussian_young,
+                                       'Senior1': gaussian_old,
+                                       'Senior2': gaussian_old},
+                          'Mixture': {1: mixture, 2: mixture, 3: mixture, 4: mixture, 5: mixture, 6: mixture},
+                          'Transition': {'Junior-Senior(80%-20%)1': get_distribution(*two_gaussian_1),
+                                        'Junior-Senior(80%-20%)2': get_distribution(*two_gaussian_2),
+                                         'Junior-Senior(20%-80%)': get_distribution(*two_gaussian_6),
+                                          'Junior-Senior(40%-60%)': get_distribution(*two_gaussian_5),
+                                          'Junior-Senior(60%-40%)1': get_distribution(*two_gaussian_3),
+                                          'Junior-Senior(60%-40%)2': get_distribution(*two_gaussian_4)
+                                         },
+                             }
+    _profiles_initialized = True
 
 #Given a dataframe and an age, retrieve all patients with that age
 def retrieve_patients_with_closest_age(df, age, used_patients=None):
@@ -303,6 +344,7 @@ def dataframes_from_distribution_fair_sample(df, distributions):
     return result
 
 def dataframes_from_distribution(df, distribution_profile, nodes):
+    _init_profiles()
     distribution_profiles = distribution_profiles_6_nodes if nodes == 6 else distribution_profiles_3_nodes
     distributions = distribution_profiles[distribution_profile]
     if distribution_profile == 'Transition':
@@ -343,41 +385,10 @@ def dataframes_from_distribution(df, distribution_profile, nodes):
 #
 # plot_age_distribution(age_distribution(df), 'OriginalData')
 
-dataset = pd.read_csv(DATA_PATH)
 
-#Drop dataset and dataset_name columns
-df = dataset.drop(columns=['dataset', 'dataset_name'])
-
-#Split the dataframe into three dataframes, get the length of each dataframe
-df_length = len(df) // 3
-
-gaussian_young = get_distribution(*normal_distribution1)
-gaussian_old = get_distribution(*normal_distribution3)
-mixture = get_distribution(*mixture_distribution)
-original = get_distribution(*original_distribution)
-
-#Create a dictionary with the datasets
-distribution_profiles_3_nodes = {'Original': {1: original, 2: original, 3: original},
-                      'Gaussian': {'Junior1': gaussian_young, 'Junior2': gaussian_young, 'Senior': gaussian_old},
-                      'Mixture': {1: mixture, 2: mixture, 3: mixture}
-                                 }
-
-distribution_profiles_6_nodes = {'Original': {1: original, 2: original, 3: original, 4: original, 5: original, 6: original},
-                      'Gaussian': {'Junior1': gaussian_young, 'Junior2': gaussian_young,
-                                   'Junior3': gaussian_young, 'Junior4': gaussian_young,
-                                   'Senior1': gaussian_old,
-                                   'Senior2': gaussian_old},
-                      'Mixture': {1: mixture, 2: mixture, 3: mixture, 4: mixture, 5: mixture, 6: mixture},
-                      'Transition': {'Junior-Senior(80%-20%)1': get_distribution(*two_gaussian_1),
-                                    'Junior-Senior(80%-20%)2': get_distribution(*two_gaussian_2),
-                                     'Junior-Senior(20%-80%)': get_distribution(*two_gaussian_6),
-                                      'Junior-Senior(40%-60%)': get_distribution(*two_gaussian_5),
-                                      'Junior-Senior(60%-40%)1': get_distribution(*two_gaussian_3),
-                                      'Junior-Senior(60%-40%)2': get_distribution(*two_gaussian_4)
-                                     },
-                         }
 
 if __name__ == '__main__':
+    _init_profiles()
     G1, _ = dataset_from_distribution(df, get_distribution(*normal_distribution1), int(len(df) * 0.625))
     # G2, _ = dataset_from_distribution(df, get_distribution(*normal_distribution2), df_length, resample=True)
     G3, _ = dataset_from_distribution(df, get_distribution(*normal_distribution3), int(len(df) * 0.375))

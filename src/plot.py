@@ -417,8 +417,8 @@ def plot_merged_losses(client_losses, strategy='FedAvg', split='Dataset', mode='
 
 
 # #If the plot folder does not exist, create it
-if not os.path.exists(plot_folder):
-  os.makedirs(plot_folder)
+plot_folder = './utils/plots/'
+os.makedirs(plot_folder, exist_ok=True)
 
 
 
