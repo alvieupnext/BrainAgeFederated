@@ -1,6 +1,8 @@
 # Based on the file content, we need to modify the function to correctly parse the losses.
 # The losses are in the format "index,loss_value".
 import os
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -247,7 +249,7 @@ def plot_centralized(projects_losses, split='Dataset', mode='DWood', alias=None,
     plt.savefig(path, format='pdf', dpi=300, bbox_inches='tight')
 
     # Show the plot
-    plt.show()
+    # plt.show()
 
 
 def plot_client_losses(client_losses, client_number=12, split='Dataset', mode='DWood', alias='', kcrossval=False, runs=10, columns=2):
@@ -314,7 +316,7 @@ def plot_client_losses(client_losses, client_number=12, split='Dataset', mode='D
   #Save the plot in the utils folder
   plt.savefig(path, format='pdf', dpi=300, bbox_inches='tight')
   # Display the plot
-  plt.show()
+  # plt.show()
 
 #A function that merges the client names, the training losses, the std losses and the x-ticks
 #It takes the client_losses dictionary as input
@@ -412,7 +414,7 @@ def plot_merged_losses(client_losses, strategy='FedAvg', split='Dataset', mode='
   path = os.path.join(plot_folder, f'{file_name}.pdf')
   plt.savefig(path, format='pdf', dpi=300, bbox_inches='tight')
   #Show the plot
-  plt.show()
+  # plt.show()
 
 
 
@@ -449,7 +451,7 @@ def plot_age_distribution(data, save_path=None, node=None):
   # Save the figure to a PDF at the specified path, if needed
   if save_path:
     plt.savefig(save_path, format='pdf', dpi=300, bbox_inches='tight')
-  plt.show()
+  # plt.show()
 
 def plot_multiple_age_distributions(dfs, profile, save_path=None):
     # Determine the number of subplots needed
@@ -486,7 +488,7 @@ def plot_multiple_age_distributions(dfs, profile, save_path=None):
     # Save the plot if a path is provided
     if save_path:
       plt.savefig(f'{save_path}.pdf', format='pdf', dpi=300, bbox_inches='tight')
-    plt.show()
+    # plt.show()
 
 # Plot the dataset_name distribution, make it a function
 # Only give a top 20 of the dataset_name, all other datasets should be classified as 'Other'
@@ -508,7 +510,7 @@ def plot_dataset_distribution(data, save_path=None):
     plt.tight_layout()  # Adjust layout
     if save_path:
       plt.savefig(save_path, format='pdf', dpi=300, bbox_inches='tight')
-    plt.show()
+    # plt.show()
 
 
 def plot_parent_dataset_distribution(data, save_path=None):
@@ -525,7 +527,7 @@ def plot_parent_dataset_distribution(data, save_path=None):
     plt.tight_layout()  # Adjust layout
     if save_path:
       plt.savefig(save_path, format='pdf', dpi=300, bbox_inches='tight')
-    plt.show()
+    # plt.show()
 
 #Makes a scatterplot of the chronological age and the predicted age of the subjects., along with the identity line
 def plot_age_predictions(project_name, true_ages, pred_ages, save_path=None):
@@ -548,7 +550,7 @@ def plot_age_predictions(project_name, true_ages, pred_ages, save_path=None):
   plt.tight_layout()
   if save_path:
     plt.savefig(save_path, format='pdf', dpi=300, bbox_inches='tight')
-  plt.show()
+  # plt.show()
 
 
 if __name__ == "__main__":
