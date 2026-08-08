@@ -41,7 +41,7 @@ def server_fn(context: Context) -> ServerAppComponents:
     run_config = context.run_config
     num_rounds = run_config.get("num-server-rounds", 5)
     strategy_name = run_config.get("strategy", "FedAvg")
-    seed = run_config.get("seed", None)
+    initial_parameters_url = run_config.get("initial-parameters", None)
     epochs = run_config.get("epochs", 20)
     patience = run_config.get("patience", 4)
     split = run_config.get("split", "dataset").capitalize()
@@ -50,13 +50,12 @@ def server_fn(context: Context) -> ServerAppComponents:
     mock = run_config.get("mock", False)
     
     # 2. Setup project names and paths
-    mode = 'RW' if not seed else 'DWood'
-    seed_str = f'_seed_{seed}' if seed else ''
+    mode = 'RW' if not initial_parameters_url else 'DWood'
     alias_str = f'_{alias}' if alias is not None else ''
     if split.lower() == 'distribution':
         split += f'_{distribution}'
         
-    project_name = f'{strategy_name}_{mode}_{split}{seed_str}{alias_str}'
+    project_name = f'{strategy_name}_{mode}_{split}{alias_str}'
     print(f'Now operating under project name {project_name}...')
     save_dir = f'./utils/models/{project_name}/'
     
@@ -64,11 +63,14 @@ def server_fn(context: Context) -> ServerAppComponents:
         os.makedirs(save_dir)
 
     # 3. Setup device and model
+    import urllib.request
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
-    if mode == 'DWood' and seed is not None:
-        dwood_seed = os.path.join(dwood, f'seed_{seed}.pt')
-        net = load_model(dwood_seed).to(device)
+    if initial_parameters_url:
+        print(f"Downloading pre-trained model from {initial_parameters_url}...")
+        pt_path = "/tmp/initial_model.pt"
+        urllib.request.urlretrieve(initial_parameters_url, pt_path)
+        net = load_model(pt_path).to(device)
     else:
         net = load_model().to(device)
         
