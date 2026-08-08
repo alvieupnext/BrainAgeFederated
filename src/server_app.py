@@ -67,9 +67,20 @@ def server_fn(context: Context) -> ServerAppComponents:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     if initial_parameters_url:
-        print(f"Downloading pre-trained model from {initial_parameters_url}...")
-        pt_path = "/tmp/initial_model.pt"
-        urllib.request.urlretrieve(initial_parameters_url, pt_path)
+        if initial_parameters_url.startswith("http://") or initial_parameters_url.startswith("https://"):
+            print(f"Downloading pre-trained model from URL {initial_parameters_url}...")
+            pt_path = "/tmp/initial_model.pt"
+            urllib.request.urlretrieve(initial_parameters_url, pt_path)
+        else:
+            from huggingface_hub import hf_hub_download
+            if "@" in initial_parameters_url:
+                repo_id, filename = initial_parameters_url.split("@", 1)
+            else:
+                repo_id = initial_parameters_url
+                filename = "model.pt"
+            print(f"Downloading {filename} from Hugging Face Hub repo {repo_id}...")
+            pt_path = hf_hub_download(repo_id=repo_id, filename=filename)
+            
         net = load_model(pt_path).to(device)
     else:
         net = load_model().to(device)
